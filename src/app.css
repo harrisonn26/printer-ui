@@ -1,0 +1,131 @@
+/* Design tokens. Every colour, radius and space in the app comes from here;
+   components never hard-code values. Dark is the default, light follows the
+   OS unless the user pins a theme via [data-theme]. */
+
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2), 0 0 0 1px var(--border);
+  --transition: 120ms ease;
+
+  /* Dark palette */
+  --bg: #0f1115;
+  --surface: #171a20;
+  --surface-2: #1e222a;
+  --surface-3: #262b35;
+  --border: #2a2f3a;
+  --border-strong: #3a4150;
+  --text: #e7e9ee;
+  --text-muted: #9aa1ae;
+  --text-faint: #6b7280;
+
+  --accent: #4f8cff;
+  --accent-hover: #6a9dff;
+  --accent-soft: rgb(79 140 255 / 0.14);
+  --on-accent: #ffffff;
+
+  --success: #34c38f;
+  --success-soft: rgb(52 195 143 / 0.14);
+  --warning: #f2b441;
+  --warning-soft: rgb(242 180 65 / 0.14);
+  --danger: #f0616d;
+  --danger-soft: rgb(240 97 109 / 0.14);
+
+  --heat: #ff7a45;
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-2: #f7f8fa;
+    --surface-3: #eceef2;
+    --border: #e1e4ea;
+    --border-strong: #cdd2db;
+    --text: #151821;
+    --text-muted: #5b6270;
+    --text-faint: #8a909c;
+    --accent: #2f6fe8;
+    --accent-hover: #245bd0;
+    --accent-soft: rgb(47 111 232 / 0.1);
+    --success: #148a5e;
+    --success-soft: rgb(20 138 94 / 0.1);
+    --warning: #b27400;
+    --warning-soft: rgb(178 116 0 / 0.1);
+    --danger: #d23645;
+    --danger-soft: rgb(210 54 69 / 0.1);
+    --heat: #e2551b;
+    --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 0 0 1px var(--border);
+    color-scheme: light;
+  }
+}
+
+:root[data-theme='light'] {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #f7f8fa;
+  --surface-3: #eceef2;
+  --border: #e1e4ea;
+  --border-strong: #cdd2db;
+  --text: #151821;
+  --text-muted: #5b6270;
+  --text-faint: #8a909c;
+  --accent: #2f6fe8;
+  --accent-hover: #245bd0;
+  --accent-soft: rgb(47 111 232 / 0.1);
+  --success: #148a5e;
+  --success-soft: rgb(20 138 94 / 0.1);
+  --warning: #b27400;
+  --warning-soft: rgb(178 116 0 / 0.1);
+  --danger: #d23645;
+  --danger-soft: rgb(210 54 69 / 0.1);
+  --heat: #e2551b;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 0 0 1px var(--border);
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+a { color: var(--accent); text-decoration: none; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono); }
+.muted { color: var(--text-muted); }

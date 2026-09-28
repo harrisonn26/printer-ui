@@ -1,0 +1,316 @@
+// Connection lifecycle, modelled on Fluidd's socket state machine
+// (src/store/socket/actions.ts), GPL-3.0:
+//
+//   initializing → {connecting | disconnected} → identifying → {ready | authenticating}
+//
+// Every transition goes through #setStatus, which validates the edge and runs
+// the destination's side-effects.
+
+import { MoonrakerSocket } from './socket'
+import { PrinterObjects } from './printer.svelte'
+import { errorMessage, isNotFoundError, isUnauthorizedError } from './errors'
+import { clearTokens, getAccessToken, saveTokens } from './tokens'
+import { normalizeMoonrakerUrl, resolveMoonrakerUrl, saveMoonrakerUrl } from '../config'
+import { toasts } from '../toasts.svelte'
+
+export type SessionStatus =
+  | 'initializing'
+  | 'disconnected'
+  | 'connecting'
+  | 'identifying'
+  | 'authenticating'
+  | 'ready'
+
+export type KlippyState = Moonraker.Server.KlippyState | 'unknown'
+
+const VALID_TRANSITIONS: Record<SessionStatus, readonly SessionStatus[]> = {
+  initializing: ['connecting', 'disconnected'],
+  disconnected: ['connecting'],
+  connecting: ['disconnected', 'identifying'],
+  identifying: ['disconnected', 'connecting', 'authenticating', 'ready'],
+  authenticating: ['disconnected', 'connecting', 'identifying'],
+  ready: ['disconnected', 'connecting', 'authenticating']
+}
+
+// Klippy states it leaves on its own; the others need a restart, which
+// Moonraker announces with notify_klippy_disconnected.
+const KLIPPY_TRANSIENT: readonly KlippyState[] = ['startup', 'disconnected']
+const KLIPPY_RETRY_MS = 1500
+
+class Session {
+  status = $state<SessionStatus>('initializing')
+  url = $state('')
+  /** Reconnect attempt, and the delay before it; null while not retrying. */
+  retry = $state<{ attempt: number, delay: number } | null>(null)
+  user = $state.raw<Moonraker.Authorization.GetUserResponse | null>(null)
+  authInfo = $state.raw<Moonraker.Authorization.InfoResponse | null>(null)
+  server = $state.raw<Moonraker.Server.InfoResponse | null>(null)
+  klippy = $state.raw<{ state: KlippyState, message: string }>({ state: 'unknown', message: '' })
+  readonly printer = new PrinterObjects()
+
+  ready = $derived(this.status === 'ready')
+  klippyReady = $derived(this.status === 'ready' && this.klippy.state === 'ready')
+  /** A real login. Trusted clients and API keys come back as `_TRUSTED_USER_` / `_API_KEY_USER_`. */
+  namedUser = $derived(this.user && !this.user.username.startsWith('_') ? this.user : null)
+
+  // server.connection.identify is one-shot per socket.
+  #identified = false
+  #klippyTimer: ReturnType<typeof setTimeout> | null = null
+
+  #socket = new MoonrakerSocket({
+    onOpen: () => {
+      this.retry = null
+      this.#setStatus('identifying')
+    },
+    onClose: delay => {
+      this.retry = { attempt: this.#socket.attempt, delay }
+      this.#setStatus('connecting')
+    },
+    onNotify: (method, params) => this.#onNotify(method, params),
+    onStatusUpdate: update => this.printer.apply(update),
+    onFastUpdate: (key, value) => this.printer.apply({ [key]: value })
+  })
+
+  async start (): Promise<void> {
+    document.addEventListener('visibilitychange', () => {
+      // Mobile browsers kill sockets in background tabs; don't make the user
+      // wait out the backoff when they come back.
+      if (document.visibilityState === 'visible' && this.status === 'connecting') {
+        this.#socket.retryNow()
+      }
+    })
+
+    this.connect(await resolveMoonrakerUrl())
+  }
+
+  /** Connect to a new URL, as typed by the user or resolved at startup. */
+  connect (input: string, persist = false): boolean {
+    const url = normalizeMoonrakerUrl(input, location.protocol === 'https:')
+    if (persist) saveMoonrakerUrl(url)
+
+    this.#socket.close()
+    this.#resetLive()
+    this.url = url ?? ''
+    this.retry = null
+
+    if (!url) {
+      this.#setStatus('disconnected')
+      return false
+    }
+
+    this.#setStatus('connecting')
+    this.#socket.connect(url)
+    return true
+  }
+
+  disconnect (): void {
+    this.#socket.close()
+    this.#resetLive()
+    this.#setStatus('disconnected')
+  }
+
+  call<T> (method: string, params?: Record<string, unknown>): Promise<T> {
+    return this.#socket.call<T>(method, params)
+  }
+
+  /** Run a user-initiated call, surfacing any failure as a toast. */
+  async run<T> (method: string, params?: Record<string, unknown>): Promise<T | undefined> {
+    try {
+      return await this.call<T>(method, params)
+    } catch (error) {
+      toasts.push(errorMessage(error), 'error')
+      return undefined
+    }
+  }
+
+  async login (username: string, password: string, source?: string): Promise<void> {
+    const response = await this.call<Moonraker.Authorization.LoginResponse>('access.login', {
+      username,
+      password,
+      source: source ?? this.authInfo?.default_source ?? 'moonraker'
+    })
+    saveTokens(this.url, response)
+    this.#setStatus('identifying')
+  }
+
+  async logout (): Promise<void> {
+    try {
+      await this.call('access.logout')
+    } catch {
+      // Already logged out server-side, or no [authorization] component.
+    }
+    await this.#afterLogout()
+  }
+
+  #setStatus (next: SessionStatus): void {
+    const prev = this.status
+    if (prev === next) return
+    if (!VALID_TRANSITIONS[prev].includes(next)) {
+      console.warn(`[session] invalid transition ${prev} → ${next}`)
+      return
+    }
+    this.status = next
+
+    switch (next) {
+      case 'connecting':
+        this.#identified = false
+        if (prev === 'ready') this.#resetLive()
+        break
+      case 'identifying':
+        void this.#identify()
+        break
+    }
+  }
+
+  async #identify (): Promise<void> {
+    if (!this.#identified) {
+      const accessToken = await getAccessToken(
+        this.url,
+        refresh_token => this.call('access.refresh_jwt', { refresh_token })
+      )
+      if (this.status !== 'identifying') return
+
+      try {
+        await this.call('server.connection.identify', {
+          client_name: 'printer-ui',
+          version: __APP_VERSION__,
+          type: 'web',
+          url: location.origin,
+          ...(accessToken ? { access_token: accessToken } : {})
+        })
+        this.#identified = true
+      } catch (error) {
+        if (this.status !== 'identifying') return
+        // A Moonraker old enough to predate identify: carry on unidentified.
+        if (!isNotFoundError(error)) {
+          await this.#enterAuthenticating()
+          return
+        }
+      }
+    }
+
+    try {
+      this.user = await this.call<Moonraker.Authorization.GetUserResponse>('access.get_user')
+    } catch {
+      // No [authorization] component, or an anonymous trusted client.
+      this.user = null
+    }
+    if (this.status !== 'identifying') return
+
+    try {
+      await this.#refreshKlippy()
+    } catch (error) {
+      if (this.status !== 'identifying') return
+      if (isUnauthorizedError(error)) {
+        await this.#enterAuthenticating()
+        return
+      }
+      // Anything else is transient; the klippy poll picks it back up.
+      console.debug('[session] bootstrap failed', error)
+    }
+    if (this.status !== 'identifying') return
+
+    this.#setStatus('ready')
+  }
+
+  async #enterAuthenticating (): Promise<void> {
+    try {
+      this.authInfo = await this.call<Moonraker.Authorization.InfoResponse>('access.info')
+    } catch {
+      this.authInfo = null
+    }
+    if (this.status === 'identifying' || this.status === 'ready') {
+      this.#setStatus('authenticating')
+    }
+  }
+
+  /** A trusted client that isn't forced to log in stays connected as itself. */
+  async #afterLogout (): Promise<void> {
+    clearTokens(this.url)
+    this.user = null
+
+    try {
+      const info = await this.call<Moonraker.Authorization.InfoResponse>('access.info')
+      if (info.trusted && !info.login_required) return
+    } catch {
+      // Fall through to the login screen.
+    }
+    await this.#enterAuthenticating()
+  }
+
+  async #refreshKlippy (): Promise<void> {
+    this.#clearKlippyTimer()
+
+    const info = await this.call<Moonraker.Server.InfoResponse>('server.info')
+    this.server = info
+
+    const state: KlippyState = info.klippy_connected ? info.klippy_state : 'disconnected'
+    let message = ''
+    if (state !== 'ready') {
+      try {
+        const printerInfo = await this.call<Moonraker.KlippyApis.InfoResponse>('printer.info')
+        message = printerInfo.state_message.trim()
+      } catch {
+        // printer.info is unavailable while Klippy is disconnected.
+      }
+    }
+    this.klippy = { state, message }
+
+    if (state === 'ready') {
+      await this.#subscribe()
+    } else if (KLIPPY_TRANSIENT.includes(state)) {
+      this.#scheduleKlippyRefresh()
+    }
+  }
+
+  #scheduleKlippyRefresh (): void {
+    this.#clearKlippyTimer()
+    this.#klippyTimer = setTimeout(() => {
+      this.#klippyTimer = null
+      if (this.status !== 'ready' && this.status !== 'identifying') return
+      this.#refreshKlippy().catch(() => this.#scheduleKlippyRefresh())
+    }, KLIPPY_RETRY_MS)
+  }
+
+  #clearKlippyTimer (): void {
+    if (this.#klippyTimer) clearTimeout(this.#klippyTimer)
+    this.#klippyTimer = null
+  }
+
+  async #subscribe (): Promise<void> {
+    const { objects } = await this.call<Moonraker.KlippyApis.ObjectsListResponse>('printer.objects.list')
+    const response = await this.call<Moonraker.KlippyApis.ObjectsSubscribeResponse>(
+      'printer.objects.subscribe',
+      { objects: Object.fromEntries(objects.map(name => [name, null])) }
+    )
+    this.printer.replace(response.status as Record<string, Record<string, unknown>>)
+  }
+
+  #onNotify (method: string, _params: unknown[] | undefined): void {
+    switch (method) {
+      case 'notify_klippy_ready':
+      case 'notify_klippy_shutdown':
+        this.#refreshKlippy().catch(() => this.#scheduleKlippyRefresh())
+        break
+      case 'notify_klippy_disconnected':
+        this.printer.clear()
+        this.klippy = { state: 'disconnected', message: '' }
+        this.#scheduleKlippyRefresh()
+        break
+      case 'notify_user_logged_out':
+        void this.#afterLogout()
+        break
+    }
+  }
+
+  #resetLive (): void {
+    this.#clearKlippyTimer()
+    this.#identified = false
+    this.printer.clear()
+    this.server = null
+    this.user = null
+    this.klippy = { state: 'unknown', message: '' }
+  }
+}
+
+export const session = new Session()
