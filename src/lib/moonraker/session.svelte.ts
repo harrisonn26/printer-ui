@@ -46,6 +46,8 @@ class Session {
   authInfo = $state.raw<Moonraker.Authorization.InfoResponse | null>(null)
   server = $state.raw<Moonraker.Server.InfoResponse | null>(null)
   klippy = $state.raw<{ state: KlippyState, message: string }>({ state: 'unknown', message: '' })
+  /** The printer host's own name, from printer.info; kept across Klippy restarts. */
+  hostname = $state<string | null>(null)
   readonly printer = new PrinterObjects()
 
   ready = $derived(this.status === 'ready')
@@ -246,13 +248,12 @@ class Session {
 
     const state: KlippyState = info.klippy_connected ? info.klippy_state : 'disconnected'
     let message = ''
-    if (state !== 'ready') {
-      try {
-        const printerInfo = await this.call<Moonraker.KlippyApis.InfoResponse>('printer.info')
-        message = printerInfo.state_message.trim()
-      } catch {
-        // printer.info is unavailable while Klippy is disconnected.
-      }
+    try {
+      const printerInfo = await this.call<Moonraker.KlippyApis.InfoResponse>('printer.info')
+      if (state !== 'ready') message = printerInfo.state_message.trim()
+      if (printerInfo.hostname) this.hostname = printerInfo.hostname
+    } catch {
+      // printer.info is unavailable while Klippy is disconnected.
     }
     this.klippy = { state, message }
 
@@ -309,6 +310,7 @@ class Session {
     this.printer.clear()
     this.server = null
     this.user = null
+    this.hostname = null
     this.klippy = { state: 'unknown', message: '' }
   }
 }

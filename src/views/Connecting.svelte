@@ -77,7 +77,7 @@
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: var(--surface-3);
+    background: var(--control);
     color: var(--text-muted);
     margin-bottom: var(--space-2);
   }

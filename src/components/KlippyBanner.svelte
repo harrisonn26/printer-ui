@@ -60,11 +60,12 @@
     align-items: flex-start;
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--danger-border);
     border-radius: var(--radius-lg);
-    background: var(--danger-soft);
+    background: var(--danger-bg);
     color: var(--danger);
   }
-  .banner.info { background: var(--accent-soft); color: var(--accent); }
+  .banner.info { background: var(--surface); border-color: var(--border); color: var(--accent); }
   .text { flex: 1; min-width: 0; color: var(--text); }
   strong { display: block; font-size: var(--text-sm); }
   pre {

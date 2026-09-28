@@ -36,6 +36,16 @@ MOONRAKER_TARGET=http://printer.local:7125 npm run dev
 existing Fluidd install and proxies Moonraker, including the OctoPrint
 compatibility API that Orca uploads through.
 
+## Design
+
+Direction C, "job-first": the current print dominates — a large stage (the
+layer preview, once it exists; the progress ring until then) beside the job
+details — with a narrow right rail for temperatures, toolhead and macros.
+Dark warm neutrals, one periwinkle accent, Archivo for text and JetBrains
+Mono for every number (both bundled, so the UI works offline). Phones stack
+the stage over the details and move navigation to a bottom tab bar. All
+values live as tokens in `src/app.css`.
+
 ## Layout
 
 ```text

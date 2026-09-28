@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { mdiServerNetwork } from '@mdi/js'
   import { session } from '../lib/moonraker/session.svelte'
   import Card from '../lib/ui/Card.svelte'
 
@@ -8,9 +7,9 @@
   })
 </script>
 
-<Card title="Machine" icon={mdiServerNetwork}>
+<Card title="Printer">
   <dl>
-    <div><dt>Host</dt><dd class="mono">{host}</dd></div>
+    <div><dt>Address</dt><dd class="mono">{host}</dd></div>
     <div><dt>Moonraker</dt><dd class="mono">{session.server?.moonraker_version ?? '—'}</dd></div>
     <div><dt>Klipper</dt><dd>{session.klippy.state}</dd></div>
     {#if session.namedUser}<div><dt>User</dt><dd>{session.namedUser.username}</dd></div>{/if}

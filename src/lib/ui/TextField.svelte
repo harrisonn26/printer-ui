@@ -33,11 +33,11 @@
   .field { display: flex; flex-direction: column; gap: var(--space-1); }
   .label { font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); }
   input {
-    height: 38px;
+    height: var(--control-height);
     padding: 0 var(--space-3);
-    background: var(--surface-2);
+    background: var(--surface-inset);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     transition: border-color var(--transition);
   }
   input:hover { border-color: var(--border-strong); }

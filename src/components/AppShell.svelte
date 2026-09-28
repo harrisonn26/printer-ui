@@ -1,96 +1,126 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { mdiCogOutline, mdiOctagonOutline, mdiViewDashboardOutline } from '@mdi/js'
+  import { mdiCogOutline, mdiPrinter3d } from '@mdi/js'
   import { session } from '../lib/moonraker/session.svelte'
   import { router, type Route } from '../lib/router.svelte'
-  import { machineState } from '../lib/machine'
   import Button from '../lib/ui/Button.svelte'
   import Icon from '../lib/ui/Icon.svelte'
-  import Pill from '../lib/ui/Pill.svelte'
 
   let { children }: { children: Snippet } = $props()
 
   const NAV: { route: Route, label: string, icon: string }[] = [
-    { route: '/', label: 'Dashboard', icon: mdiViewDashboardOutline },
+    { route: '/', label: 'Print', icon: mdiPrinter3d },
     { route: '/settings', label: 'Settings', icon: mdiCogOutline }
   ]
 
-  const machine = $derived(machineState(
-    session.status,
-    session.klippy.state,
-    session.printer.get('print_stats')?.state
-  ))
+  const host = $derived.by(() => {
+    if (session.hostname) return session.hostname
+    try { return new URL(session.url).hostname } catch { return 'Printer' }
+  })
 </script>
 
-<div class="shell">
-  <header class="bar">
-    <nav aria-label="Main">
-      {#each NAV as item (item.route)}
-        <a
-          href={router.href(item.route)}
-          class:active={router.current === item.route}
-          aria-current={router.current === item.route ? 'page' : undefined}
-        >
-          <Icon path={item.icon} size={18} />
-          <span class="label">{item.label}</span>
-        </a>
-      {/each}
-    </nav>
+{#snippet links(variant: 'segmented' | 'tabs')}
+  <nav class={variant} aria-label="Main">
+    {#each NAV as item (item.route)}
+      <a
+        href={router.href(item.route)}
+        class:active={router.current === item.route}
+        aria-current={router.current === item.route ? 'page' : undefined}
+      >
+        {#if variant === 'tabs'}<Icon path={item.icon} size={20} />{/if}
+        {item.label}
+      </a>
+    {/each}
+  </nav>
+{/snippet}
 
-    <div class="right">
-      <Pill tone={machine.tone} pulse={machine.busy}>{machine.label}</Pill>
-      <Button
-        variant="danger"
-        size="sm"
-        icon={mdiOctagonOutline}
-        disabled={!session.klippyReady}
-        title="Emergency stop"
-        onclick={() => session.run('printer.emergency_stop')}
-      >Stop</Button>
-    </div>
+<div class="shell">
+  <header>
+    <span class="host">{host}</span>
+    <div class="desktop-nav">{@render links('segmented')}</div>
+    <Button
+      variant="danger"
+      size="sm"
+      disabled={!session.klippyReady}
+      onclick={() => session.run('printer.emergency_stop')}
+    >Emergency stop</Button>
   </header>
 
   <main>
     {@render children()}
   </main>
+
+  <div class="mobile-nav">{@render links('tabs')}</div>
 </div>
 
 <style>
   .shell { min-height: 100svh; display: flex; flex-direction: column; }
-  .bar {
-    position: sticky;
-    top: 0;
-    z-index: 10;
+
+  header {
+    height: 56px;
+    flex: none;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    height: 52px;
-    padding: 0 var(--space-4);
-    background: color-mix(in srgb, var(--bg) 85%, transparent);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--border);
+    gap: var(--space-5);
+    padding: 0 var(--space-6);
   }
-  nav { display: flex; gap: var(--space-1); }
-  nav a {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    height: 34px;
-    padding: 0 var(--space-3);
+  .host { font-weight: 700; }
+  .desktop-nav { flex: 1; }
+
+  .segmented {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  .segmented a {
+    padding: 6px 14px;
     border-radius: var(--radius-sm);
     color: var(--text-muted);
     font-size: var(--text-sm);
-    font-weight: 550;
+    font-weight: 600;
     transition: background var(--transition), color var(--transition);
   }
-  nav a:hover { background: var(--surface-3); color: var(--text); }
-  nav a.active { background: var(--accent-soft); color: var(--accent); }
-  .right { display: flex; align-items: center; gap: var(--space-2); }
-  main { flex: 1; width: 100%; max-width: 1280px; margin: 0 auto; padding: var(--space-4); }
+  .segmented a:hover { color: var(--text); }
+  .segmented a.active { background: var(--control); color: var(--text); }
 
-  @media (max-width: 600px) {
-    .label { display: none; }
-    main { padding: var(--space-3); }
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 var(--space-6) var(--space-6);
+  }
+
+  .mobile-nav { display: none; }
+
+  @media (max-width: 760px) {
+    header { padding: 0 var(--space-4); }
+    .host { flex: 1; }
+    .desktop-nav { display: none; }
+    main { padding: 0 var(--space-4) calc(64px + var(--space-4) + env(safe-area-inset-bottom)); }
+
+    .mobile-nav {
+      display: block;
+      position: fixed;
+      inset: auto 0 0;
+      z-index: 10;
+      padding-bottom: env(safe-area-inset-bottom);
+      background: var(--surface-inset);
+      border-top: 1px solid var(--border);
+    }
+    .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); height: 64px; }
+    .tabs a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-1);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tabs a.active { color: var(--accent); }
   }
 </style>

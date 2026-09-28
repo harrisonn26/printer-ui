@@ -10,31 +10,29 @@
   let { tone = 'neutral', pulse = false, children }: Props = $props()
 </script>
 
-<span class="pill {tone}">
+<span class="status {tone}">
   <span class="dot" class:pulse></span>
   {@render children()}
 </span>
 
 <style>
-  .pill {
+  .status {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    height: 24px;
-    padding: 0 10px;
-    border-radius: 999px;
+    gap: var(--space-2);
     font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: capitalize;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     white-space: nowrap;
   }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   .pulse { animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: 0.3; } }
 
-  .neutral { background: var(--surface-3); color: var(--text-muted); }
-  .accent { background: var(--accent-soft); color: var(--accent); }
-  .success { background: var(--success-soft); color: var(--success); }
-  .warning { background: var(--warning-soft); color: var(--warning); }
-  .danger { background: var(--danger-soft); color: var(--danger); }
+  .neutral { color: var(--text-muted); }
+  .accent { color: var(--accent); }
+  .success { color: var(--success); }
+  .warning { color: var(--warning); }
+  .danger { color: var(--danger); }
 </style>

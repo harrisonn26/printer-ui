@@ -32,7 +32,7 @@
     align-items: flex-start;
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
-    background: var(--surface-3);
+    background: var(--control);
     border-left: 3px solid var(--text-muted);
     border-radius: var(--radius-sm);
     box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);

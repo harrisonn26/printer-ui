@@ -1,107 +1,110 @@
-/* Design tokens. Every colour, radius and space in the app comes from here;
-   components never hard-code values. Dark is the default, light follows the
-   OS unless the user pins a theme via [data-theme]. */
+/* Design tokens — direction C, "job-first". Every colour, radius and space in
+   the app comes from here; components never hard-code values. Dark is the
+   primary theme; light follows the OS unless pinned via [data-theme]. */
 
 :root {
-  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-sans: 'Archivo Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
 
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
-  --text-md: 0.9375rem;
-  --text-lg: 1.125rem;
+  --text-md: 0.875rem;
+  --text-lg: 1.0625rem;
   --text-xl: 1.5rem;
-  --text-2xl: 2rem;
+  --text-2xl: 2.5rem;
 
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
+  --space-5: 20px;
+  --space-6: 28px;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
 
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2), 0 0 0 1px var(--border);
+  --control-height: 44px;
   --transition: 120ms ease;
 
   /* Dark palette */
-  --bg: #0f1115;
-  --surface: #171a20;
-  --surface-2: #1e222a;
-  --surface-3: #262b35;
-  --border: #2a2f3a;
-  --border-strong: #3a4150;
-  --text: #e7e9ee;
-  --text-muted: #9aa1ae;
-  --text-faint: #6b7280;
+  --bg: #141312;
+  --surface: #1c1b19;
+  --surface-inset: #181715;
+  --control: #2c2926;
+  --control-hover: #36322e;
+  --border: #2a2825;
+  --border-strong: #36322e;
+  --text: #efede8;
+  --text-muted: #a39e95;
+  --text-faint: #7a756c;
 
-  --accent: #4f8cff;
-  --accent-hover: #6a9dff;
-  --accent-soft: rgb(79 140 255 / 0.14);
-  --on-accent: #ffffff;
+  --accent: #9db4ff;
+  --accent-hover: #b6c8ff;
+  --accent-soft: rgb(157 180 255 / 0.12);
+  --on-accent: #141312;
 
-  --success: #34c38f;
-  --success-soft: rgb(52 195 143 / 0.14);
-  --warning: #f2b441;
-  --warning-soft: rgb(242 180 65 / 0.14);
-  --danger: #f0616d;
-  --danger-soft: rgb(240 97 109 / 0.14);
+  --success: #8ee0b0;
+  --warning: #f2c14e;
+  --warning-soft: rgb(242 193 78 / 0.12);
+  --danger: #ff9b8a;
+  --danger-bg: #2b1714;
+  --danger-border: #5c2620;
 
-  --heat: #ff7a45;
+  --heat: #ff9a6b;
 
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
-    --bg: #f4f5f7;
+    --bg: #f4f2ee;
     --surface: #ffffff;
-    --surface-2: #f7f8fa;
-    --surface-3: #eceef2;
-    --border: #e1e4ea;
-    --border-strong: #cdd2db;
-    --text: #151821;
-    --text-muted: #5b6270;
-    --text-faint: #8a909c;
-    --accent: #2f6fe8;
-    --accent-hover: #245bd0;
-    --accent-soft: rgb(47 111 232 / 0.1);
-    --success: #148a5e;
-    --success-soft: rgb(20 138 94 / 0.1);
-    --warning: #b27400;
-    --warning-soft: rgb(178 116 0 / 0.1);
-    --danger: #d23645;
-    --danger-soft: rgb(210 54 69 / 0.1);
-    --heat: #e2551b;
-    --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 0 0 1px var(--border);
+    --surface-inset: #faf8f5;
+    --control: #ebe7e1;
+    --control-hover: #e0dbd3;
+    --border: #e6e1da;
+    --border-strong: #d6d0c7;
+    --text: #1c1b19;
+    --text-muted: #6b665e;
+    --text-faint: #8a857c;
+    --accent: #3553d6;
+    --accent-hover: #2742bd;
+    --accent-soft: rgb(53 83 214 / 0.1);
+    --on-accent: #ffffff;
+    --success: #15803d;
+    --warning: #a16207;
+    --warning-soft: rgb(161 98 7 / 0.1);
+    --danger: #b3261e;
+    --danger-bg: #fbe9e6;
+    --danger-border: #f0bdb5;
+    --heat: #c2410c;
     color-scheme: light;
   }
 }
 
 :root[data-theme='light'] {
-  --bg: #f4f5f7;
+  --bg: #f4f2ee;
   --surface: #ffffff;
-  --surface-2: #f7f8fa;
-  --surface-3: #eceef2;
-  --border: #e1e4ea;
-  --border-strong: #cdd2db;
-  --text: #151821;
-  --text-muted: #5b6270;
-  --text-faint: #8a909c;
-  --accent: #2f6fe8;
-  --accent-hover: #245bd0;
-  --accent-soft: rgb(47 111 232 / 0.1);
-  --success: #148a5e;
-  --success-soft: rgb(20 138 94 / 0.1);
-  --warning: #b27400;
-  --warning-soft: rgb(178 116 0 / 0.1);
-  --danger: #d23645;
-  --danger-soft: rgb(210 54 69 / 0.1);
-  --heat: #e2551b;
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 0 0 1px var(--border);
+  --surface-inset: #faf8f5;
+  --control: #ebe7e1;
+  --control-hover: #e0dbd3;
+  --border: #e6e1da;
+  --border-strong: #d6d0c7;
+  --text: #1c1b19;
+  --text-muted: #6b665e;
+  --text-faint: #8a857c;
+  --accent: #3553d6;
+  --accent-hover: #2742bd;
+  --accent-soft: rgb(53 83 214 / 0.1);
+  --on-accent: #ffffff;
+  --success: #15803d;
+  --warning: #a16207;
+  --warning-soft: rgb(161 98 7 / 0.1);
+  --danger: #b3261e;
+  --danger-bg: #fbe9e6;
+  --danger-border: #f0bdb5;
+  --heat: #c2410c;
   color-scheme: light;
 }
 
@@ -126,6 +129,6 @@ a { color: var(--accent); text-decoration: none; }
   outline-offset: 2px;
 }
 
-.num { font-variant-numeric: tabular-nums; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--font-mono); }
 .muted { color: var(--text-muted); }

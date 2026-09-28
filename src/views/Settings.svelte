@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { mdiAccountCircleOutline, mdiLanConnect, mdiPaletteOutline } from '@mdi/js'
   import { session } from '../lib/moonraker/session.svelte'
   import { theme, type ThemeChoice } from '../lib/theme.svelte'
   import Button from '../lib/ui/Button.svelte'
   import Card from '../lib/ui/Card.svelte'
+  import MachineCard from '../components/MachineCard.svelte'
   import TextField from '../lib/ui/TextField.svelte'
 
   let url = $state(session.url)
@@ -22,7 +22,7 @@
 </script>
 
 <div class="settings">
-  <Card title="Connection" icon={mdiLanConnect}>
+  <Card title="Connection">
     <form onsubmit={connect}>
       <TextField
         label="Moonraker address"
@@ -37,7 +37,9 @@
     </form>
   </Card>
 
-  <Card title="Appearance" icon={mdiPaletteOutline}>
+  <MachineCard />
+
+  <Card title="Appearance">
     <div class="segmented" role="radiogroup" aria-label="Theme">
       {#each THEMES as option (option.value)}
         <button
@@ -52,7 +54,7 @@
   </Card>
 
   {#if session.namedUser}
-    <Card title="Account" icon={mdiAccountCircleOutline}>
+    <Card title="Account">
       <div class="account">
         <span>Signed in as <strong>{session.namedUser.username}</strong></span>
         <Button onclick={() => session.logout()}>Sign out</Button>
@@ -70,21 +72,21 @@
   .segmented {
     display: inline-flex;
     padding: 3px;
-    border-radius: var(--radius-sm);
-    background: var(--surface-3);
+    border-radius: var(--radius-md);
+    background: var(--control);
   }
   .segmented button {
-    height: 30px;
+    height: 36px;
     padding: 0 var(--space-4);
     border: 0;
-    border-radius: 4px;
+    border-radius: 6px;
     background: transparent;
     color: var(--text-muted);
     font-size: var(--text-sm);
     font-weight: 550;
     cursor: pointer;
   }
-  .segmented button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-card); }
+  .segmented button.active { background: var(--surface); color: var(--text);  }
   .account { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); font-size: var(--text-sm); }
   .about { text-align: center; font-size: var(--text-xs); }
 </style>

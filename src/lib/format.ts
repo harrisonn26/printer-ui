@@ -12,6 +12,8 @@ export const formatTemp = (value: number | null | undefined): string => (
   value == null || !Number.isFinite(value) ? '—' : value.toFixed(1)
 )
 
+const ACRONYMS = new Set(['mcu', 'cpu', 'soc', 'ntc', 'pt100', 'pt1000'])
+
 const NAMES: Record<string, string> = {
   extruder: 'Extruder',
   heater_bed: 'Bed'
@@ -27,8 +29,22 @@ export const prettyObjectName = (key: string): string => {
 
   const name = key.includes(' ') ? key.slice(key.indexOf(' ') + 1) : key
   return name
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase())
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map(word => ACRONYMS.has(word.toLowerCase())
+      ? word.toUpperCase()
+      : word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
 export const fileBasename = (path: string): string => path.slice(path.lastIndexOf('/') + 1)
+
+// Orca's default output name is `{input_filename_base}_{filament_type}_{print_time}`,
+// e.g. `Skadis universal mount slot_PLA_1h16m.gcode`.
+const SLICER_SUFFIX = /_[A-Za-z0-9+-]+_(?=\d)(?:\d+d)?(?:\d+h)?(?:\d+m)?(?:\d+s)?$/
+
+/** A job's display name: no folder, no extension, no slicer suffix. */
+export const jobTitle = (path: string): string => {
+  const base = fileBasename(path).replace(/\.(gcode|g|gco|bgcode)$/i, '')
+  return base.replace(SLICER_SUFFIX, '') || base
+}

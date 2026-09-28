@@ -70,17 +70,17 @@
   p { margin: 0 0 var(--space-3); text-align: center; font-size: var(--text-sm); overflow-wrap: anywhere; }
   .error {
     padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-sm);
-    background: var(--danger-soft);
+    border-radius: var(--radius-md);
+    background: var(--danger-bg);
     color: var(--danger);
     font-size: var(--text-sm);
   }
   .source { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); }
   select {
-    height: 38px;
+    height: var(--control-height);
     padding: 0 var(--space-2);
-    background: var(--surface-2);
+    background: var(--surface-inset);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
   }
 </style>
