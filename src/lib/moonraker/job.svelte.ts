@@ -2,7 +2,7 @@ import { session } from './session.svelte'
 
 type Metadata = Pick<
   Moonraker.Files.Metadata,
-  'estimated_time' | 'layer_height' | 'first_layer_height' | 'object_height' | 'filament_type'
+  'estimated_time' | 'layer_height' | 'first_layer_height' | 'object_height' | 'filament_type' | 'thumbnails'
 >
 
 /**

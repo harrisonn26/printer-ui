@@ -58,7 +58,7 @@ src/
 │   ├── config.ts    Moonraker URL resolution
 │   └── router.svelte.ts  hash router
 ├── components/      app shell and dashboard cards
-├── views/           Connecting, Login, Dashboard, Console, Settings
+├── views/           Connecting, Login, Dashboard, Jobs, Console, Settings
 ├── typings/         Klipper/Moonraker types, from Fluidd
 └── app.css          design tokens (light/dark)
 ```
@@ -73,10 +73,10 @@ changes.
 
 Done: connection and auth, job panel, temperatures with editable targets,
 toolhead (jog, home, Z offset), macros with parameters, console, thermal
-chart (uPlot, 20 min), camera (MJPEG stream, snapshot polling, iframe).
+chart (uPlot, 20 min), camera (MJPEG stream, snapshot polling, iframe),
+jobs (G-code files with thumbnails and search, print history, reprint).
 
-Planned: outputs (fans, LEDs), job picker, G-code preview, history, bed mesh,
-system. WebRTC/HLS cameras are not supported yet. Not planned: file
+Planned: outputs (fans, LEDs), G-code preview, bed mesh, system. WebRTC/HLS cameras are not supported yet. Not planned: file
 manager, config editor, MMU/AFC, Spoolman, timelapse.
 
 ## License

@@ -55,6 +55,9 @@ class Session {
   readonly console = new ConsoleLog()
   readonly thermals = new ThermalHistory()
   webcams = $state.raw<Moonraker.Webcam.Entry[]>([])
+  /** Bumped when the gcodes folder or the print history changes; views refetch on it. */
+  filesRevision = $state(0)
+  historyRevision = $state(0)
 
   ready = $derived(this.status === 'ready')
   klippyReady = $derived(this.status === 'ready' && this.klippy.state === 'ready')
@@ -396,6 +399,19 @@ class Session {
         }
         break
       }
+      case 'notify_filelist_changed': {
+        const change = params?.[0]
+        const roots = change && typeof change === 'object'
+          ? [('item' in change ? change.item : null), ('source_item' in change ? change.source_item : null)]
+          : []
+        if (roots.some(item => item && typeof item === 'object' && 'root' in item && item.root === 'gcodes')) {
+          this.filesRevision++
+        }
+        break
+      }
+      case 'notify_history_changed':
+        this.historyRevision++
+        break
       case 'notify_user_logged_out':
         void this.#afterLogout()
         break

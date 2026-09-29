@@ -1,4 +1,6 @@
 declare namespace Moonraker.History {
+  export type HistoryItemStatus = 'completed' | 'cancelled' | 'error' | 'printing' | 'in_progress' | 'server_exit' | 'klippy_shutdown' | 'klippy_disconnect' | 'interrupted'
+
   export interface TotalsResponse {
     job_totals: JobTotals;
     auxiliary_totals: AuxiliaryTotal[];

@@ -7,6 +7,7 @@
   import Pill from '../lib/ui/Pill.svelte'
   import ProgressRing from '../lib/ui/ProgressRing.svelte'
   import Segmented from '../lib/ui/Segmented.svelte'
+  import Thumbnail from '../lib/ui/Thumbnail.svelte'
   import CameraView from './CameraView.svelte'
   import { browserTokenStore } from '../lib/moonraker/tokens'
 
@@ -110,7 +111,12 @@
     <Pill tone={machine.tone} pulse={machine.busy}>{machine.label}</Pill>
 
     {#if job.filename}
-      <h1 title={job.filename}>{jobTitle(job.filename)}</h1>
+      <div class="title-row">
+        {#if job.metadata?.thumbnails?.length}
+          <Thumbnail path={job.filename} thumbnails={job.metadata.thumbnails} size={64} />
+        {/if}
+        <h1 title={job.filename}>{jobTitle(job.filename)}</h1>
+      </div>
     {:else}
       <h1 class="none">No job loaded</h1>
     {/if}
@@ -205,6 +211,7 @@
     padding: var(--space-6);
     border-left: 1px solid var(--border);
   }
+  .title-row { display: flex; align-items: center; gap: var(--space-3); }
   h1 { margin: 0; font-size: var(--text-xl); font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
   h1.none { color: var(--text-muted); font-weight: 600; }
   dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }

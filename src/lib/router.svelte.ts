@@ -1,9 +1,9 @@
 // Hash routing: the app is served from a Pi or inside Orca's webview, where
 // there's no server-side fallback to rely on.
 
-export type Route = '/' | '/console' | '/settings'
+export type Route = '/' | '/jobs' | '/console' | '/settings'
 
-const ROUTES: readonly Route[] = ['/', '/console', '/settings']
+const ROUTES: readonly Route[] = ['/', '/jobs', '/console', '/settings']
 
 const parse = (): Route => {
   const path = location.hash.replace(/^#/, '') || '/'
@@ -19,6 +19,10 @@ class Router {
 
   href (route: Route): string {
     return `#${route}`
+  }
+
+  go (route: Route): void {
+    location.hash = route
   }
 }
 

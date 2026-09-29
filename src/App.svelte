@@ -7,6 +7,7 @@
   import Connecting from './views/Connecting.svelte'
   import Console from './views/Console.svelte'
   import Dashboard from './views/Dashboard.svelte'
+  import Jobs from './views/Jobs.svelte'
   import Login from './views/Login.svelte'
   import Settings from './views/Settings.svelte'
 
@@ -17,6 +18,8 @@
   <AppShell>
     {#if router.current === '/settings'}
       <Settings />
+    {:else if router.current === '/jobs'}
+      <Jobs />
     {:else if router.current === '/console'}
       <Console />
     {:else}
