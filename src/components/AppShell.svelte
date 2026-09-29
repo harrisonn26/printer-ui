@@ -6,6 +6,9 @@
   import Button from '../lib/ui/Button.svelte'
   import Icon from '../lib/ui/Icon.svelte'
   import { toasts } from '../lib/toasts.svelte'
+  import { job } from '../lib/moonraker/job.svelte'
+  import { jobTitle } from '../lib/format'
+  import { machineState, tabTitle } from '../lib/machine'
 
   let { children }: { children: Snippet } = $props()
 
@@ -21,6 +24,14 @@
     if (session.hostname) return session.hostname
     try { return new URL(session.url).hostname } catch { return 'Printer' }
   })
+
+  const title = $derived(tabTitle({
+    host,
+    state: machineState(session.status, session.klippy.state, job.stats?.state),
+    printState: job.stats?.state,
+    progress: job.progress,
+    job: job.filename ? jobTitle(job.filename) : ''
+  }))
 
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
   const SHORTCUT_HINT = isMac ? '⌘+Shift+X' : 'Ctrl+Shift+X'
@@ -45,6 +56,7 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} />
+<svelte:head><title>{title}</title></svelte:head>
 
 {#snippet links(variant: 'segmented' | 'tabs')}
   <nav class={variant} aria-label="Main">

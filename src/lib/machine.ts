@@ -37,3 +37,28 @@ export const machineState = (
   if (klippy !== 'ready') return KLIPPY[klippy]
   return PRINT[print ?? 'standby']
 }
+
+/**
+ * The browser tab title: progress first, so it survives a narrow tab.
+ * `56% · main-body — debian`, `Paused 56% · …`, `Idle — debian`.
+ */
+export const tabTitle = (input: {
+  host: string
+  state: MachineState
+  printState: PrintState | undefined
+  progress: number
+  job: string
+}): string => {
+  const percent = `${Math.floor(input.progress * 100)}%`
+  let lead: string
+  if (input.printState === 'printing' && input.state.label === 'Printing') {
+    lead = `${percent} · ${input.job}`
+  } else if (input.printState === 'paused' && input.state.label === 'Paused') {
+    lead = `Paused ${percent} · ${input.job}`
+  } else if (input.job && (input.printState === 'complete' || input.printState === 'cancelled' || input.printState === 'error')) {
+    lead = `${input.state.label} · ${input.job}`
+  } else {
+    lead = input.state.label
+  }
+  return `${lead} — ${input.host}`
+}
