@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { mdiCogOutline, mdiConsoleLine, mdiFileDocumentMultipleOutline, mdiPrinter3d } from '@mdi/js'
+  import { mdiCogOutline, mdiConsoleLine, mdiFileDocumentMultipleOutline, mdiPrinter3d, mdiTune } from '@mdi/js'
   import { session } from '../lib/moonraker/session.svelte'
   import { router, type Route } from '../lib/router.svelte'
   import Button from '../lib/ui/Button.svelte'
@@ -12,6 +12,7 @@
     { route: '/', label: 'Print', icon: mdiPrinter3d },
     { route: '/jobs', label: 'Jobs', icon: mdiFileDocumentMultipleOutline },
     { route: '/console', label: 'Console', icon: mdiConsoleLine },
+    { route: '/machine', label: 'Machine', icon: mdiTune },
     { route: '/settings', label: 'Settings', icon: mdiCogOutline }
   ]
 

@@ -6,6 +6,11 @@ export const httpBase = (moonrakerUrl: string): string => {
 
 const encodePath = (path: string): string => path.split('/').map(encodeURIComponent).join('/')
 
+/** Download URL of a file in the gcodes root. */
+export const fileUrl = (moonrakerUrl: string, path: string): string => (
+  `${httpBase(moonrakerUrl)}/server/files/gcodes/${encodePath(path)}`
+)
+
 /** A file's folder within the gcodes root, with a trailing slash ('' for the root). */
 export const dirOf = (path: string): string => {
   const slash = path.lastIndexOf('/')
@@ -30,7 +35,7 @@ export const thumbnailUrl = (
   moonrakerUrl: string,
   filePath: string,
   thumbnail: Moonraker.Files.MetadataThumbnail
-): string => `${httpBase(moonrakerUrl)}/server/files/gcodes/${encodePath(dirOf(filePath) + thumbnail.relative_path)}`
+): string => fileUrl(moonrakerUrl, dirOf(filePath) + thumbnail.relative_path)
 
 export const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`

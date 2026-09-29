@@ -9,6 +9,7 @@
   import Dashboard from './views/Dashboard.svelte'
   import Jobs from './views/Jobs.svelte'
   import Login from './views/Login.svelte'
+  import Machine from './views/Machine.svelte'
   import Settings from './views/Settings.svelte'
 
   onMount(() => { void session.start() })
@@ -20,6 +21,8 @@
       <Settings />
     {:else if router.current === '/jobs'}
       <Jobs />
+    {:else if router.current === '/machine'}
+      <Machine />
     {:else if router.current === '/console'}
       <Console />
     {:else}
