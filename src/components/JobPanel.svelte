@@ -73,8 +73,13 @@
       <LayerPreview />
     {:else}
       <div class="idle">
-        <p class="idle-title">Ready for a print</p>
-        <p class="muted">Send one from OrcaSlicer and it appears here.</p>
+        {#if session.klippyReady}
+          <p class="idle-title">Ready for a print</p>
+          <p class="muted">Send one from OrcaSlicer and it appears here.</p>
+        {:else}
+          <p class="idle-title">Printer not ready</p>
+          <p class="muted">Klipper needs attention before it can print.</p>
+        {/if}
       </div>
     {/if}
 

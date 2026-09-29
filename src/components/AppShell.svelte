@@ -73,7 +73,7 @@
       title="Emergency stop ({SHORTCUT_HINT})"
       aria-keyshortcuts="Control+Shift+X Meta+Shift+X"
       onclick={emergencyStop}
-    >Emergency stop<kbd>{SHORTCUT_HINT}</kbd></Button>
+    >Emergency stop<span class="shortcut">{SHORTCUT_HINT}</span></Button>
   </header>
 
   <main>
@@ -97,18 +97,15 @@
     align-items: center;
     gap: var(--space-5);
     padding: 0 var(--space-6);
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: blur(10px);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--space-4);
   }
-  kbd {
-    margin-left: var(--space-1);
-    padding: 1px 5px;
-    border: 1px solid var(--danger-border);
-    border-radius: 4px;
+  .shortcut {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    opacity: 0.85;
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.6;
   }
   .host { font-weight: 700; }
   .desktop-nav { flex: 1; }
@@ -143,7 +140,8 @@
 
   @media (max-width: 760px) {
     header { padding: 0 var(--space-4); }
-    kbd { display: none; }
+    .shortcut { display: none; }
+    header { margin-bottom: var(--space-3); }
     .host { flex: 1; }
     .desktop-nav { display: none; }
     main { padding: 0 var(--space-4) calc(64px + var(--space-4) + env(safe-area-inset-bottom)); }

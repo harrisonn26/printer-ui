@@ -96,7 +96,8 @@
   .console {
     display: flex;
     flex-direction: column;
-    height: calc(100svh - 56px - var(--space-6));
+    /* Viewport minus the header (56px + border + gap) and the page's bottom padding. */
+    height: calc(100svh - 57px - var(--space-4) - var(--space-6));
     background: var(--surface);
     border-radius: var(--radius-lg);
     overflow: hidden;
@@ -149,7 +150,7 @@
   input::placeholder { color: var(--text-faint); }
 
   @media (max-width: 760px) {
-    .console { height: calc(100svh - 56px - 64px - var(--space-4) - env(safe-area-inset-bottom)); }
+    .console { height: calc(100svh - 57px - var(--space-3) - 64px - var(--space-4) - env(safe-area-inset-bottom)); }
     .log { padding: var(--space-3); font-size: var(--text-xs); }
     .time { display: none; }
     form { padding-left: var(--space-3); }
