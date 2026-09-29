@@ -8,7 +8,8 @@
 
 import { MoonrakerSocket } from './socket'
 import { PrinterObjects } from './printer.svelte'
-import { errorMessage, isNotFoundError, isUnauthorizedError } from './errors'
+import { ConsoleLog } from './console.svelte'
+import { errorMessage, isNotFoundError, isSocketError, isUnauthorizedError } from './errors'
 import { clearTokens, getAccessToken, saveTokens } from './tokens'
 import { normalizeMoonrakerUrl, resolveMoonrakerUrl, saveMoonrakerUrl } from '../config'
 import { toasts } from '../toasts.svelte'
@@ -49,6 +50,7 @@ class Session {
   /** The printer host's own name, from printer.info; kept across Klippy restarts. */
   hostname = $state<string | null>(null)
   readonly printer = new PrinterObjects()
+  readonly console = new ConsoleLog()
 
   ready = $derived(this.status === 'ready')
   klippyReady = $derived(this.status === 'ready' && this.klippy.state === 'ready')
@@ -122,6 +124,24 @@ class Session {
     } catch (error) {
       toasts.push(errorMessage(error), 'error')
       return undefined
+    }
+  }
+
+  /**
+   * Send G-code as the user: echoed to the console, failures surfaced as a
+   * toast and a console error. Resolves true when Klipper accepted it.
+   */
+  async sendGcode (script: string): Promise<boolean> {
+    this.console.push(script, 'command')
+    try {
+      await this.call('printer.gcode.script', { script })
+      return true
+    } catch (error) {
+      const message = errorMessage(error)
+      // Klipper's own errors already reach the console as `!! …` responses.
+      if (!isSocketError(error)) this.console.push(`!! ${message}`, 'response')
+      toasts.push(message, 'error')
+      return false
     }
   }
 
@@ -212,7 +232,16 @@ class Session {
     }
     if (this.status !== 'identifying') return
 
+    this.#loadConsole()
     this.#setStatus('ready')
+  }
+
+  #loadConsole (): void {
+    this.call<Moonraker.DataStore.GcodeStoreResponse>('server.gcode_store', { count: 200 })
+      .then(response => this.console.load(response.gcode_store))
+      .catch(() => {
+        // Older Moonraker, or the store is disabled: start with an empty console.
+      })
   }
 
   async #enterAuthenticating (): Promise<void> {
@@ -287,7 +316,7 @@ class Session {
     this.printer.replace(response.status as Record<string, Record<string, unknown>>)
   }
 
-  #onNotify (method: string, _params: unknown[] | undefined): void {
+  #onNotify (method: string, params: unknown[] | undefined): void {
     switch (method) {
       case 'notify_klippy_ready':
       case 'notify_klippy_shutdown':
@@ -298,6 +327,11 @@ class Session {
         this.klippy = { state: 'disconnected', message: '' }
         this.#scheduleKlippyRefresh()
         break
+      case 'notify_gcode_response': {
+        const message = params?.[0]
+        if (typeof message === 'string') this.console.push(message, 'response')
+        break
+      }
       case 'notify_user_logged_out':
         void this.#afterLogout()
         break

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { mdiCogOutline, mdiPrinter3d } from '@mdi/js'
+  import { mdiCogOutline, mdiConsoleLine, mdiPrinter3d } from '@mdi/js'
   import { session } from '../lib/moonraker/session.svelte'
   import { router, type Route } from '../lib/router.svelte'
   import Button from '../lib/ui/Button.svelte'
@@ -10,6 +10,7 @@
 
   const NAV: { route: Route, label: string, icon: string }[] = [
     { route: '/', label: 'Print', icon: mdiPrinter3d },
+    { route: '/console', label: 'Console', icon: mdiConsoleLine },
     { route: '/settings', label: 'Settings', icon: mdiCogOutline }
   ]
 

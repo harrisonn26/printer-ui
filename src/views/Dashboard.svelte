@@ -2,7 +2,9 @@
   import { session } from '../lib/moonraker/session.svelte'
   import JobPanel from '../components/JobPanel.svelte'
   import KlippyBanner from '../components/KlippyBanner.svelte'
+  import MacrosCard from '../components/MacrosCard.svelte'
   import TemperaturesCard from '../components/TemperaturesCard.svelte'
+  import ToolheadCard from '../components/ToolheadCard.svelte'
 </script>
 
 {#if !session.klippyReady}
@@ -13,6 +15,8 @@
   <JobPanel />
   <aside class="rail">
     <TemperaturesCard />
+    <ToolheadCard />
+    <MacrosCard />
   </aside>
 </div>
 
@@ -20,7 +24,7 @@
   .banner { margin-bottom: var(--space-4); }
   .dashboard {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-columns: minmax(0, 1fr) 360px;
     gap: var(--space-4);
     align-items: start;
   }

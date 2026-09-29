@@ -54,10 +54,11 @@ src/
 │   ├── moonraker/   socket (JSON-RPC, retry, status batching), session state
 │   │                machine, JWT tokens, printer objects store
 │   ├── ui/          primitives: Button, Card, Pill, TextField, Icon, Toasts
+│   ├── gcode.ts     G-code builders: moves, targets, Z offset, macro params
 │   ├── config.ts    Moonraker URL resolution
 │   └── router.svelte.ts  hash router
 ├── components/      app shell and dashboard cards
-├── views/           Connecting, Login, Dashboard, Settings
+├── views/           Connecting, Login, Dashboard, Console, Settings
 ├── typings/         Klipper/Moonraker types, from Fluidd
 └── app.css          design tokens (light/dark)
 ```
@@ -70,8 +71,11 @@ changes.
 
 ## Scope
 
-Planned: toolhead, thermals chart, console, macros, outputs, job picker,
-camera, G-code preview, history, bed mesh, system, settings. Not planned: file
+Done: connection and auth, job panel, temperatures with editable targets,
+toolhead (jog, home, Z offset), macros with parameters, console.
+
+Planned: thermals chart, outputs (fans, LEDs), job picker, camera, G-code
+preview, history, bed mesh, system. Not planned: file
 manager, config editor, MMU/AFC, Spoolman, timelapse.
 
 ## License
