@@ -18,7 +18,8 @@
   // Klipper's command list (macros included), fetched once per connection.
   let help = $state.raw<Record<string, string>>({})
   let selected = $state(0)
-  let dismissed = $state(false)
+  // Opened by typing only, so a command recalled from history never traps the arrows.
+  let suggesting = $state(false)
 
   $effect(() => {
     if (!session.klippyReady) return
@@ -27,7 +28,7 @@
       .catch(() => { help = {} })
   })
 
-  const suggestions = $derived(dismissed ? [] : commandSuggestions(help, command))
+  const suggestions = $derived(suggesting ? commandSuggestions(help, command) : [])
 
   $effect(() => {
     void command
@@ -36,7 +37,7 @@
 
   const complete = (value: string) => {
     command = `${value} `
-    dismissed = false
+    suggesting = false
   }
 
   const time = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -64,15 +65,15 @@
     if (history.at(-1) !== script) history = [...history, script].slice(-HISTORY_LIMIT)
     historyIndex = -1
     command = ''
-    dismissed = false
+    suggesting = false
     stickToBottom = true
     await session.sendGcode(script)
   }
 
   const onKeydown = (event: KeyboardEvent) => {
-    // With suggestions open, the arrows pick one and Tab takes it.
+    // With suggestions open, the arrows pick one and Tab or Enter takes it.
     if (suggestions.length > 0) {
-      if (event.key === 'Tab') {
+      if (event.key === 'Tab' || event.key === 'Enter') {
         event.preventDefault()
         const pick = suggestions[selected] ?? suggestions[0]
         if (pick) complete(pick.command)
@@ -85,7 +86,7 @@
         return
       }
       if (event.key === 'Escape') {
-        dismissed = true
+        suggesting = false
         return
       }
     }
@@ -99,6 +100,7 @@
       historyIndex = historyIndex + 1 >= history.length ? -1 : historyIndex + 1
     }
     command = historyIndex === -1 ? '' : history[historyIndex] ?? ''
+    suggesting = false
   }
 </script>
 
@@ -135,7 +137,7 @@
           </button>
         </li>
       {/each}
-      <li class="hint" aria-hidden="true">Tab to complete · ↑↓ to choose · Esc to close</li>
+      <li class="hint" aria-hidden="true">Enter or Tab to complete · ↑↓ to choose · Esc to close</li>
     </ul>
   {/if}
 
@@ -144,7 +146,7 @@
     <input
       class="mono"
       bind:value={command}
-      oninput={() => { dismissed = false }}
+      oninput={() => { suggesting = true; historyIndex = -1 }}
       onkeydown={onKeydown}
       placeholder="Send G-code…"
       aria-label="G-code command"

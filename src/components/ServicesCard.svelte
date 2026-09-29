@@ -21,9 +21,11 @@
     status === 'on' ? 'success' : status === 'error' ? 'danger' : 'neutral'
   )
 
-  // Restarting Klipper ends a print, and it isn't worth reasoning about which
-  // services are safe mid-print: all of them wait.
   const busy = $derived(job.active)
+  // Restarting this printer's own Klipper ends its print. Everything else —
+  // Moonraker, and the services of other printers on the same host — is fair game.
+  const ownKlipper = $derived(info?.instance_ids?.klipper ?? 'klipper')
+  const lockedService = (name: string) => busy && name === ownKlipper
 </script>
 
 <Card title="Services">
@@ -40,8 +42,8 @@
               label="Restart"
               confirmLabel="Restart?"
               variant="ghost"
-              disabled={!session.ready || busy}
-              title={busy ? 'Not while printing' : undefined}
+              disabled={!session.ready || lockedService(service.name)}
+              title={lockedService(service.name) ? "This printer's Klipper — restarting it would end the print" : undefined}
               onconfirm={() => session.run('machine.services.restart', { service: service.name })}
             />
           {:else}
@@ -67,13 +69,14 @@
         <li>
           <span class="name">{device.device}</span>
           <Pill tone={powerTone(device.status)}>{device.status}</Pill>
+          {#if locked}<span class="lock muted">Locked while printing</span>{/if}
           <ConfirmButton
             label={device.status === 'on' ? 'Turn off' : 'Turn on'}
             confirmLabel={device.status === 'on' ? 'Turn off?' : 'Turn on?'}
             confirmVariant={device.status === 'on' ? 'danger' : 'primary'}
             variant="ghost"
             disabled={!session.ready || locked || device.status === 'init'}
-            title={locked ? 'Locked while printing' : undefined}
+            title={locked ? 'Moonraker locks this device while the printer is printing' : undefined}
             onconfirm={() => session.run('machine.device_power.post_device', {
               device: device.device,
               action: device.status === 'on' ? 'off' : 'on'
@@ -90,5 +93,6 @@
   ul { list-style: none; margin: 0; padding: 0; }
   li { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; }
   li + li { border-top: 1px solid var(--border); }
+  .lock { font-size: var(--text-xs); }
   .name { flex: 1; min-width: 0; font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
