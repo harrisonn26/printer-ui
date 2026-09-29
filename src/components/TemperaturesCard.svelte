@@ -2,6 +2,7 @@
   import { session } from '../lib/moonraker/session.svelte'
   import { formatTemp, prettyObjectName } from '../lib/format'
   import { setTargetCommand, targetKind } from '../lib/gcode'
+  import { sensorKeys, seriesVar } from '../lib/sensors'
   import { toasts } from '../lib/toasts.svelte'
   import Button from '../lib/ui/Button.svelte'
   import Card from '../lib/ui/Card.svelte'
@@ -13,6 +14,7 @@
     target: number | undefined
     settable: boolean
     maxTemp: number | undefined
+    colorVar: string
   }
 
   const num = (value: unknown): number | undefined => (typeof value === 'number' ? value : undefined)
@@ -20,12 +22,8 @@
   const heaters = $derived(session.printer.get('heaters'))
   const settings = $derived(session.printer.get('configfile')?.settings)
 
-  // available_sensors already includes the heaters; keep heaters first.
   const rows = $derived.by((): Row[] => {
-    if (!heaters) return []
-    const heaterKeys: string[] = heaters.available_heaters
-    const keys = [...heaterKeys, ...heaters.available_sensors.filter(key => !heaterKeys.includes(key))]
-    return keys.map(key => {
+    return sensorKeys(heaters).map((key, index) => {
       const object = session.printer.raw(key)
       return {
         key,
@@ -33,7 +31,8 @@
         temperature: num(object?.temperature),
         target: num(object?.target),
         settable: targetKind(key) != null,
-        maxTemp: num(settings?.[key.toLowerCase()]?.max_temp)
+        maxTemp: num(settings?.[key.toLowerCase()]?.max_temp),
+        colorVar: seriesVar(index)
       }
     })
   })
@@ -84,6 +83,7 @@
     <ul>
       {#each rows as row (row.key)}
         <li class:heating={(row.target ?? 0) > 0}>
+          <span class="key" style:background="var({row.colorVar})" aria-hidden="true"></span>
           <span class="name">{row.name}</span>
           <span class="temp num">{formatTemp(row.temperature)}°</span>
           {#if row.settable}
@@ -115,6 +115,7 @@
   .empty { margin: 0; font-size: var(--text-sm); }
   ul { list-style: none; margin: 0; padding: 0; }
   li { display: flex; align-items: center; gap: var(--space-3); height: 42px; }
+  .key { width: 14px; height: 3px; flex: none; border-radius: 2px; }
   .name { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .temp { font-size: 1.0625rem; }
   .heating .temp { color: var(--heat); }

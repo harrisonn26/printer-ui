@@ -72,10 +72,11 @@ changes.
 ## Scope
 
 Done: connection and auth, job panel, temperatures with editable targets,
-toolhead (jog, home, Z offset), macros with parameters, console.
+toolhead (jog, home, Z offset), macros with parameters, console, thermal
+chart (uPlot, 20 min), camera (MJPEG stream, snapshot polling, iframe).
 
-Planned: thermals chart, outputs (fans, LEDs), job picker, camera, G-code
-preview, history, bed mesh, system. Not planned: file
+Planned: outputs (fans, LEDs), job picker, G-code preview, history, bed mesh,
+system. WebRTC/HLS cameras are not supported yet. Not planned: file
 manager, config editor, MMU/AFC, Spoolman, timelapse.
 
 ## License

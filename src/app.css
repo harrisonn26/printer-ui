@@ -53,6 +53,16 @@
 
   --heat: #ff9a6b;
 
+  /* Chart series, validated for CVD separation on --surface (dataviz palette). */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+
   color-scheme: dark;
 }
 
@@ -79,6 +89,14 @@
     --danger-bg: #fbe9e6;
     --danger-border: #f0bdb5;
     --heat: #c2410c;
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --series-5: #e87ba4;
+    --series-6: #008300;
+    --series-7: #4a3aa7;
+    --series-8: #e34948;
     color-scheme: light;
   }
 }
@@ -105,6 +123,14 @@
   --danger-bg: #fbe9e6;
   --danger-border: #f0bdb5;
   --heat: #c2410c;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
   color-scheme: light;
 }
 

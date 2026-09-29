@@ -6,8 +6,27 @@
   import Button from '../lib/ui/Button.svelte'
   import Pill from '../lib/ui/Pill.svelte'
   import ProgressRing from '../lib/ui/ProgressRing.svelte'
+  import Segmented from '../lib/ui/Segmented.svelte'
+  import CameraView from './CameraView.svelte'
+  import { browserTokenStore } from '../lib/moonraker/tokens'
 
   const CONFIRM_MS = 4000
+  const VIEW_KEY = 'printer-ui:stage-view'
+
+  type StageView = 'progress' | 'camera'
+  const VIEWS = [
+    { value: 'progress', label: 'Progress' },
+    { value: 'camera', label: 'Camera' }
+  ] as const
+
+  let view = $state<StageView>(browserTokenStore.get(VIEW_KEY) === 'camera' ? 'camera' : 'progress')
+  let cameraIndex = $state(0)
+
+  $effect(() => { browserTokenStore.set(VIEW_KEY, view) })
+
+  const cameras = $derived(session.webcams)
+  const camera = $derived(cameras[cameraIndex] ?? cameras[0])
+  const showCamera = $derived(view === 'camera' && camera != null)
 
   let pending = $state<string | null>(null)
   let confirmingCancel = $state(false)
@@ -53,8 +72,10 @@
 
 <section class="job">
   <!-- The stage becomes the layer preview (phase 5); until then it carries progress. -->
-  <div class="stage">
-    {#if showProgress}
+  <div class="stage" class:has-camera={showCamera}>
+    {#if showCamera && camera}
+      <CameraView {camera} />
+    {:else if showProgress}
       <ProgressRing value={job.progress} size={220} label="{Math.round(job.progress * 100)} percent complete">
         <span class="percent num">{Math.floor(job.progress * 100)}%</span>
         {#if job.remaining != null}
@@ -70,6 +91,19 @@
         <p class="muted">Send one from OrcaSlicer and it appears here.</p>
       </div>
     {/if}
+
+    {#if cameras.length > 0}
+      <div class="stage-switch">
+        {#if showCamera && cameras.length > 1}
+          <select bind:value={cameraIndex} aria-label="Camera">
+            {#each cameras as option, index (option.uid)}
+              <option value={index}>{option.name ?? `Camera ${index + 1}`}</option>
+            {/each}
+          </select>
+        {/if}
+        <Segmented options={VIEWS} bind:value={view} label="Stage view" />
+      </div>
+    {/if}
   </div>
 
   <div class="details">
@@ -83,6 +117,8 @@
 
     {#if showProgress}
       <dl>
+        {#if showCamera}<div><dt>Progress</dt><dd class="num">{Math.floor(job.progress * 100)}%</dd></div>{/if}
+        {#if showCamera && job.remaining != null}<div><dt>Remaining</dt><dd class="num">{formatDuration(job.remaining)}</dd></div>{/if}
         <div><dt>Elapsed</dt><dd class="num">{formatDuration(job.elapsed)}</dd></div>
         <div><dt>Filament</dt><dd class="num">{((job.stats?.filament_used ?? 0) / 1000).toFixed(2)} m</dd></div>
         <div><dt>Speed</dt><dd class="num">{percent(gcodeMove?.speed_factor)}</dd></div>
@@ -135,6 +171,23 @@
     place-items: center;
     padding: var(--space-6);
     background: var(--surface-inset);
+  }
+  .stage.has-camera { padding: 0; }
+  .stage-switch {
+    position: absolute;
+    right: var(--space-4);
+    bottom: var(--space-4);
+    display: flex;
+    gap: var(--space-2);
+    z-index: 1;
+  }
+  .stage-switch select {
+    height: 42px;
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: 10px;
+    background: var(--surface-inset);
+    font-size: var(--text-sm);
   }
   .stage-label { position: absolute; left: var(--space-5); top: var(--space-5); font-size: var(--text-xs); color: var(--text-muted); }
   .percent { font-size: var(--text-2xl); font-weight: 600; line-height: 1; }

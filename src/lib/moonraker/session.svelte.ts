@@ -9,6 +9,8 @@
 import { MoonrakerSocket } from './socket'
 import { PrinterObjects } from './printer.svelte'
 import { ConsoleLog } from './console.svelte'
+import { ThermalHistory, type Reading } from './thermals.svelte'
+import { sensorKeys } from '../sensors'
 import { errorMessage, isNotFoundError, isSocketError, isUnauthorizedError } from './errors'
 import { clearTokens, getAccessToken, saveTokens } from './tokens'
 import { normalizeMoonrakerUrl, resolveMoonrakerUrl, saveMoonrakerUrl } from '../config'
@@ -51,6 +53,8 @@ class Session {
   hostname = $state<string | null>(null)
   readonly printer = new PrinterObjects()
   readonly console = new ConsoleLog()
+  readonly thermals = new ThermalHistory()
+  webcams = $state.raw<Moonraker.Webcam.Entry[]>([])
 
   ready = $derived(this.status === 'ready')
   klippyReady = $derived(this.status === 'ready' && this.klippy.state === 'ready')
@@ -60,6 +64,9 @@ class Session {
   // server.connection.identify is one-shot per socket.
   #identified = false
   #klippyTimer: ReturnType<typeof setTimeout> | null = null
+  #sampleTimer: ReturnType<typeof setInterval> | null = null
+  // Bumped by every start/stop, so a store fetch that outlives a reset is dropped.
+  #thermalRun = 0
 
   #socket = new MoonrakerSocket({
     onOpen: () => {
@@ -233,7 +240,55 @@ class Session {
     if (this.status !== 'identifying') return
 
     this.#loadConsole()
+    this.#loadWebcams()
     this.#setStatus('ready')
+  }
+
+  #loadWebcams (): void {
+    this.call<Moonraker.Webcam.ListResponse>('server.webcams.list')
+      .then(response => this.#setWebcams(response.webcams))
+      .catch(() => { this.webcams = [] })
+  }
+
+  #setWebcams (webcams: Moonraker.Webcam.Entry[]): void {
+    this.webcams = webcams.filter(webcam => webcam.enabled !== false)
+  }
+
+  /** Seed the chart from Moonraker's store, then sample live values each second. */
+  async #startThermals (): Promise<void> {
+    this.#stopThermals()
+    const run = this.#thermalRun
+    let store: Moonraker.DataStore.TemperatureStoreResponse | null = null
+    try {
+      store = await this.call<Moonraker.DataStore.TemperatureStoreResponse>('server.temperature_store')
+    } catch {
+      // No history available: the chart starts from now.
+    }
+    if (run !== this.#thermalRun) return
+
+    if (store) this.thermals.load(store)
+    else this.thermals.clear()
+    this.#sampleTimer = setInterval(() => this.#sampleThermals(), 1000)
+  }
+
+  #stopThermals (): void {
+    this.#thermalRun++
+    if (this.#sampleTimer) clearInterval(this.#sampleTimer)
+    this.#sampleTimer = null
+  }
+
+  #sampleThermals (): void {
+    const readings = new Map<string, Reading>()
+    for (const key of sensorKeys(this.printer.get('heaters'))) {
+      const object = this.printer.raw(key)
+      const temperature = object?.temperature
+      const target = object?.target
+      readings.set(key, {
+        temperature: typeof temperature === 'number' ? temperature : undefined,
+        target: typeof target === 'number' ? target : undefined
+      })
+    }
+    this.thermals.sample(readings)
   }
 
   #loadConsole (): void {
@@ -314,6 +369,7 @@ class Session {
       { objects: Object.fromEntries(objects.map(name => [name, null])) }
     )
     this.printer.replace(response.status as Record<string, Record<string, unknown>>)
+    void this.#startThermals()
   }
 
   #onNotify (method: string, params: unknown[] | undefined): void {
@@ -323,6 +379,7 @@ class Session {
         this.#refreshKlippy().catch(() => this.#scheduleKlippyRefresh())
         break
       case 'notify_klippy_disconnected':
+        this.#stopThermals()
         this.printer.clear()
         this.klippy = { state: 'disconnected', message: '' }
         this.#scheduleKlippyRefresh()
@@ -330,6 +387,13 @@ class Session {
       case 'notify_gcode_response': {
         const message = params?.[0]
         if (typeof message === 'string') this.console.push(message, 'response')
+        break
+      }
+      case 'notify_webcams_changed': {
+        const payload = params?.[0]
+        if (payload && typeof payload === 'object' && 'webcams' in payload && Array.isArray(payload.webcams)) {
+          this.#setWebcams(payload.webcams)
+        }
         break
       }
       case 'notify_user_logged_out':
@@ -340,6 +404,9 @@ class Session {
 
   #resetLive (): void {
     this.#clearKlippyTimer()
+    this.#stopThermals()
+    this.thermals.clear()
+    this.webcams = []
     this.#identified = false
     this.printer.clear()
     this.server = null
