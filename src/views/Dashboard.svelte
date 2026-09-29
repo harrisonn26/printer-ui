@@ -18,8 +18,8 @@
   <div class="chart"><ThermalChart /></div>
   <aside class="rail">
     <TemperaturesCard />
-    <OutputsCard />
     <ToolheadCard />
+    <OutputsCard />
     <MacrosCard />
   </aside>
 </div>
