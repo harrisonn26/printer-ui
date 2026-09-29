@@ -5,6 +5,7 @@
   import { router, type Route } from '../lib/router.svelte'
   import Button from '../lib/ui/Button.svelte'
   import Icon from '../lib/ui/Icon.svelte'
+  import { toasts } from '../lib/toasts.svelte'
 
   let { children }: { children: Snippet } = $props()
 
@@ -20,7 +21,30 @@
     if (session.hostname) return session.hostname
     try { return new URL(session.url).hostname } catch { return 'Printer' }
   })
+
+  const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
+  const SHORTCUT_HINT = isMac ? '⌘⇧X' : 'Ctrl+Shift+X'
+
+  let stopping = $state(false)
+
+  // Never disabled while connected: if Klipper can't take it, Moonraker says so.
+  const emergencyStop = async () => {
+    if (stopping) return
+    stopping = true
+    const result = await session.run('printer.emergency_stop')
+    stopping = false
+    if (result !== undefined) toasts.push('Emergency stop sent', 'warning')
+  }
+
+  // Ctrl/⌘+Shift+X from anywhere, including while typing in a field.
+  const onKeydown = (event: KeyboardEvent) => {
+    if (event.code !== 'KeyX' || !event.shiftKey || !(event.ctrlKey || event.metaKey) || event.altKey) return
+    event.preventDefault()
+    if (!event.repeat) void emergencyStop()
+  }
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 {#snippet links(variant: 'segmented' | 'tabs')}
   <nav class={variant} aria-label="Main">
@@ -44,9 +68,12 @@
     <Button
       variant="danger"
       size="sm"
-      disabled={!session.klippyReady}
-      onclick={() => session.run('printer.emergency_stop')}
-    >Emergency stop</Button>
+      disabled={!session.ready}
+      loading={stopping}
+      title="Emergency stop ({SHORTCUT_HINT})"
+      aria-keyshortcuts="Control+Shift+X Meta+Shift+X"
+      onclick={emergencyStop}
+    >Emergency stop<kbd>{SHORTCUT_HINT}</kbd></Button>
   </header>
 
   <main>
@@ -59,13 +86,29 @@
 <style>
   .shell { min-height: 100svh; display: flex; flex-direction: column; }
 
+  /* Sticky, so the emergency stop is on screen however far the page scrolls. */
   header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
     height: 56px;
     flex: none;
     display: flex;
     align-items: center;
     gap: var(--space-5);
     padding: 0 var(--space-6);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  kbd {
+    margin-left: var(--space-1);
+    padding: 1px 5px;
+    border: 1px solid var(--danger-border);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    opacity: 0.85;
   }
   .host { font-weight: 700; }
   .desktop-nav { flex: 1; }
@@ -100,6 +143,7 @@
 
   @media (max-width: 760px) {
     header { padding: 0 var(--space-4); }
+    kbd { display: none; }
     .host { flex: 1; }
     .desktop-nav { display: none; }
     main { padding: 0 var(--space-4) calc(64px + var(--space-4) + env(safe-area-inset-bottom)); }
