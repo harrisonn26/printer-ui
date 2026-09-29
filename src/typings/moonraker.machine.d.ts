@@ -49,6 +49,7 @@ declare namespace Moonraker.Machine {
     like: string;
     codename: string;
     release_info?: ReleaseInfo;
+    kernel_version?: string;
   }
 
   export interface DistributionVersionParts {

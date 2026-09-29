@@ -10,6 +10,7 @@ import { MoonrakerSocket } from './socket'
 import { PrinterObjects } from './printer.svelte'
 import { ConsoleLog } from './console.svelte'
 import { ThermalHistory, type Reading } from './thermals.svelte'
+import { SystemState } from './system.svelte'
 import { sensorKeys } from '../sensors'
 import { errorMessage, isNotFoundError, isSocketError, isUnauthorizedError } from './errors'
 import { clearTokens, getAccessToken, saveTokens } from './tokens'
@@ -54,6 +55,7 @@ class Session {
   readonly printer = new PrinterObjects()
   readonly console = new ConsoleLog()
   readonly thermals = new ThermalHistory()
+  readonly system = new SystemState()
   webcams = $state.raw<Moonraker.Webcam.Entry[]>([])
   /** Bumped when the gcodes folder or the print history changes; views refetch on it. */
   filesRevision = $state(0)
@@ -244,6 +246,7 @@ class Session {
 
     this.#loadConsole()
     this.#loadWebcams()
+    void this.system.load((method, params) => this.call(method, params))
     this.#setStatus('ready')
   }
 
@@ -376,6 +379,7 @@ class Session {
   }
 
   #onNotify (method: string, params: unknown[] | undefined): void {
+    if (this.system.handle(method, params, (m, p) => this.call(m, p))) return
     switch (method) {
       case 'notify_klippy_ready':
       case 'notify_klippy_shutdown':
@@ -422,6 +426,7 @@ class Session {
     this.#clearKlippyTimer()
     this.#stopThermals()
     this.thermals.clear()
+    this.system.clear()
     this.webcams = []
     this.#identified = false
     this.printer.clear()

@@ -77,9 +77,10 @@ toolhead (jog, home, Z offset), macros with parameters, console, thermal
 chart (uPlot, 20 min), camera (MJPEG stream, snapshot polling, iframe),
 jobs (G-code files with thumbnails and search, print history, reprint),
 G-code layer preview (worker-parsed, live front from file_position, arcs),
-bed mesh heatmap (active mesh and saved profiles).
+bed mesh heatmap (active mesh and saved profiles), fans/pins/LEDs, host
+stats, services, updates, power devices, config warnings and SAVE_CONFIG.
 
-Planned: outputs (fans, LEDs), system (updates, services, power). WebRTC/HLS cameras are not supported yet. Not planned: file
+Not planned yet: WebRTC/HLS cameras, saving the Z offset to config. WebRTC/HLS cameras are not supported yet. Not planned: file
 manager, config editor, MMU/AFC, Spoolman, timelapse.
 
 ## License
