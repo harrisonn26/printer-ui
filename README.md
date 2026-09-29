@@ -32,9 +32,15 @@ MOONRAKER_TARGET=http://printer.local:7125 npm run dev
 
 ## Deploy
 
-`deploy/nginx-printer-ui.conf` serves `dist/` on port 4411 next to an
-existing Fluidd install and proxies Moonraker, including the OctoPrint
-compatibility API that Orca uploads through.
+```bash
+./deploy/deploy.sh   # build, then copy to harrison@192.168.0.140:~/printer-ui
+```
+
+`deploy/nginx-printer-ui.conf` serves `~/printer-ui/dist` on port 4411 next
+to the existing Fluidd install and proxies Moonraker, including the OctoPrint
+compatibility API that Orca uploads through. Installing it is a one-time sudo
+step; the script prints the commands. Override the target with `DEPLOY_HOST`
+and `DEPLOY_DIR`.
 
 ## Design
 
