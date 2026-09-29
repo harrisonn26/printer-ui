@@ -5,38 +5,17 @@
   import Card from '../lib/ui/Card.svelte'
   import MachineCard from '../components/MachineCard.svelte'
   import PresetsEditor from '../components/PresetsEditor.svelte'
-  import TextField from '../lib/ui/TextField.svelte'
-
-  let url = $state(session.url)
-  let error = $state<string | null>(null)
+  import PrintersCard from '../components/PrintersCard.svelte'
 
   const THEMES: { value: ThemeChoice, label: string }[] = [
     { value: 'system', label: 'System' },
     { value: 'dark', label: 'Dark' },
     { value: 'light', label: 'Light' }
   ]
-
-  const connect = (event: SubmitEvent) => {
-    event.preventDefault()
-    error = session.connect(url, true) ? null : 'Not a valid address'
-  }
 </script>
 
 <div class="settings">
-  <Card title="Connection">
-    <form onsubmit={connect}>
-      <TextField
-        label="Moonraker address"
-        bind:value={url}
-        {error}
-        hint="Saved in this browser. Leave the deploy's config.json for the default."
-        spellcheck="false"
-      />
-      <div class="row">
-        <Button type="submit" variant="primary">Reconnect</Button>
-      </div>
-    </form>
-  </Card>
+  <PrintersCard />
 
   <MachineCard />
 
@@ -70,8 +49,6 @@
 
 <style>
   .settings { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-4); }
-  form { display: flex; flex-direction: column; gap: var(--space-3); }
-  .row { display: flex; gap: var(--space-2); }
   .segmented {
     display: inline-flex;
     padding: 3px;

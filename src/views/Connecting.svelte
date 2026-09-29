@@ -4,6 +4,7 @@
   import Button from '../lib/ui/Button.svelte'
   import Icon from '../lib/ui/Icon.svelte'
   import TextField from '../lib/ui/TextField.svelte'
+  import { printers, printerLabel } from '../lib/printers.svelte'
 
   let url = $state('')
   let edited = $state(false)
@@ -14,11 +15,13 @@
     if (!edited) url = session.url
   })
 
+  const others = $derived(printers.list.filter(entry => entry.id !== printers.active?.id))
+
   const connecting = $derived(session.status === 'connecting' || session.status === 'initializing')
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault()
-    error = session.connect(url, true) ? null : 'Enter a host, e.g. 192.168.1.20 or printer.local:7125'
+    error = session.setAddress(url) ? null : 'Enter a host, e.g. 192.168.1.20 or printer.local:7125'
   }
 </script>
 
@@ -58,6 +61,15 @@
         {/if}
       </div>
     </form>
+
+    {#if others.length > 0}
+      <div class="others">
+        <span class="muted">Or switch to</span>
+        {#each others as entry (entry.id)}
+          <Button size="sm" variant="outline" onclick={() => session.switchTo(entry.id)}>{printerLabel(entry)}</Button>
+        {/each}
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -87,4 +99,5 @@
   p { margin: 0; font-size: var(--text-sm); overflow-wrap: anywhere; }
   form { width: 100%; margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); text-align: left; }
   .row { display: flex; gap: var(--space-2); }
+  .others { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-2); margin-top: var(--space-5); font-size: var(--text-sm); }
 </style>

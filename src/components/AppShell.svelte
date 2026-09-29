@@ -9,6 +9,8 @@
   import { job } from '../lib/moonraker/job.svelte'
   import { jobTitle } from '../lib/format'
   import { machineState, tabTitle } from '../lib/machine'
+  import { printers, printerLabel } from '../lib/printers.svelte'
+  import PrinterSwitcher from './PrinterSwitcher.svelte'
 
   let { children }: { children: Snippet } = $props()
 
@@ -20,10 +22,7 @@
     { route: '/settings', label: 'Settings', icon: mdiCogOutline }
   ]
 
-  const host = $derived.by(() => {
-    if (session.hostname) return session.hostname
-    try { return new URL(session.url).hostname } catch { return 'Printer' }
-  })
+  const host = $derived(printers.active ? printerLabel(printers.active, session.hostname) : 'Printer')
 
   const title = $derived(tabTitle({
     host,
@@ -75,7 +74,7 @@
 
 <div class="shell">
   <header>
-    <span class="host">{host}</span>
+    <div class="host"><PrinterSwitcher /></div>
     <div class="desktop-nav">{@render links('segmented')}</div>
     <Button
       variant="danger"

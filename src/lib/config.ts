@@ -1,7 +1,3 @@
-import { browserTokenStore } from './moonraker/tokens'
-
-const URL_KEY = 'printer-ui:moonraker-url'
-
 export const sameOriginUrl = (): string => {
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
   return `${scheme}://${location.host}/websocket`
@@ -35,11 +31,8 @@ export const normalizeMoonrakerUrl = (input: string, secure = false): string | n
   return `${protocol}//${url.host}${path}`
 }
 
-/** Saved choice, then the deploy's config.json, then this page's own host. */
-export const resolveMoonrakerUrl = async (): Promise<string> => {
-  const saved = browserTokenStore.get(URL_KEY)
-  if (saved) return saved
-
+/** The deploy's config.json, else this page's own host (the nginx deploy proxies Moonraker). */
+export const resolveDefaultUrl = async (): Promise<string> => {
   try {
     const response = await fetch('./config.json', { cache: 'no-store' })
     if (response.ok) {
@@ -59,9 +52,4 @@ export const resolveMoonrakerUrl = async (): Promise<string> => {
   }
 
   return sameOriginUrl()
-}
-
-export const saveMoonrakerUrl = (url: string | null): void => {
-  if (url) browserTokenStore.set(URL_KEY, url)
-  else browserTokenStore.remove(URL_KEY)
 }

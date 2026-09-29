@@ -15,7 +15,8 @@ import { Presets } from './presets.svelte'
 import { sensorKeys } from '../sensors'
 import { errorMessage, isNotFoundError, isSocketError, isUnauthorizedError } from './errors'
 import { clearTokens, getAccessToken, saveTokens } from './tokens'
-import { normalizeMoonrakerUrl, resolveMoonrakerUrl, saveMoonrakerUrl } from '../config'
+import { normalizeMoonrakerUrl, resolveDefaultUrl } from '../config'
+import { printers } from '../printers.svelte'
 import { toasts } from '../toasts.svelte'
 
 export type SessionStatus =
@@ -98,13 +99,26 @@ class Session {
       }
     })
 
-    this.connect(await resolveMoonrakerUrl())
+    printers.init(await resolveDefaultUrl())
+    this.connect(printers.active?.url ?? '')
+  }
+
+  /** Switch to another saved printer. */
+  switchTo (id: string): void {
+    const entry = printers.select(id)
+    if (entry && entry.url !== this.url) this.connect(entry.url)
+  }
+
+  /** Change the active printer's address (typed on the connect screen) and reconnect. */
+  setAddress (input: string): boolean {
+    const active = printers.active
+    if (!active || !printers.update(active.id, { address: input }, location.protocol === 'https:')) return false
+    return this.connect(printers.active?.url ?? '')
   }
 
   /** Connect to a new URL, as typed by the user or resolved at startup. */
-  connect (input: string, persist = false): boolean {
+  connect (input: string): boolean {
     const url = normalizeMoonrakerUrl(input, location.protocol === 'https:')
-    if (persist) saveMoonrakerUrl(url)
 
     this.#socket.close()
     this.#resetLive()
