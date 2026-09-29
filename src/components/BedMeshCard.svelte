@@ -54,7 +54,12 @@
     return `color-mix(in oklab, ${pole} ${Math.round(Math.abs(t) * 100)}%, var(--mesh-mid))`
   }
 
-  const mm = (value: number, digits = 3) => `${value > 0 ? '+' : ''}${value.toFixed(digits)}`
+  // Signed, with anything that rounds to zero shown as a plain 0 (never "-0.00").
+  const mm = (value: number, digits = 3) => {
+    const rounded = Number(value.toFixed(digits))
+    if (rounded === 0) return (0).toFixed(digits)
+    return `${rounded > 0 ? '+' : ''}${rounded.toFixed(digits)}`
+  }
 
   const send = async (key: string, script: string) => {
     pending = key

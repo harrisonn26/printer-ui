@@ -143,13 +143,16 @@
     const shown = manualLayer ?? live
     if (shown < 0) return
 
-    // Scale to the whole model so the view doesn't jump between layers.
-    const pad = 24
+    // Scale to the whole model so the view doesn't jump between layers. The
+    // top and bottom bands are left clear for the layer label and scrubber.
+    const padX = 24
+    const padTop = 48
+    const padBottom = 72
     const modelWidth = Math.max(p.maxX - p.minX, 1)
     const modelHeight = Math.max(p.maxY - p.minY, 1)
-    const scale = Math.min((width - pad * 2) / modelWidth, (height - pad * 2) / modelHeight)
+    const scale = Math.min((width - padX * 2) / modelWidth, (height - padTop - padBottom) / modelHeight)
     const ox = (width - modelWidth * scale) / 2 - p.minX * scale
-    const oy = (height - modelHeight * scale) / 2 + p.maxY * scale
+    const oy = padTop + (height - padTop - padBottom - modelHeight * scale) / 2 + p.maxY * scale
     const X = (v: number) => ox + v * scale
     const Y = (v: number) => oy - v * scale
 
