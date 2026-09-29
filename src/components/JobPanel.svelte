@@ -1,7 +1,10 @@
 <script lang="ts">
   import { session } from '../lib/moonraker/session.svelte'
   import { job } from '../lib/moonraker/job.svelte'
-  import { formatDuration, jobTitle } from '../lib/format'
+  import { formatDuration, jobTitle, objectLabel } from '../lib/format'
+  import { excludeObjectCommand, flowFactorCommand, speedFactorCommand } from '../lib/gcode'
+  import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
+  import InlineNumber from '../lib/ui/InlineNumber.svelte'
   import { machineState } from '../lib/machine'
   import Button from '../lib/ui/Button.svelte'
   import Pill from '../lib/ui/Pill.svelte'
@@ -46,6 +49,17 @@
   const showProgress = $derived(job.active || job.state === 'complete')
 
   const percent = (factor: number | undefined) => (factor == null ? '—' : `${Math.round(factor * 100)}%`)
+
+  const excludeState = $derived(session.printer.get('exclude_object'))
+  // Excluding the only object is just cancelling, so the list starts at two.
+  const objects = $derived((excludeState?.objects ?? []).length > 1
+    ? (excludeState?.objects ?? []).map(object => ({
+        name: object.name,
+        label: objectLabel(object.name),
+        excluded: excludeState?.excluded_objects.includes(object.name) ?? false,
+        current: excludeState?.current_object === object.name
+      }))
+    : [])
 
   const run = async (method: string) => {
     pending = method
@@ -130,10 +144,68 @@
       <dl>
         <div><dt>Elapsed</dt><dd class="num">{formatDuration(job.elapsed)}</dd></div>
         <div><dt>Filament</dt><dd class="num">{((job.stats?.filament_used ?? 0) / 1000).toFixed(2)} m</dd></div>
-        <div><dt>Speed</dt><dd class="num">{percent(gcodeMove?.speed_factor)}</dd></div>
-        <div><dt>Flow</dt><dd class="num">{percent(gcodeMove?.extrude_factor)}</dd></div>
+        <div>
+          <dt>Speed</dt>
+          <dd class="num">
+            {#if job.active}
+              <InlineNumber
+                value={gcodeMove?.speed_factor != null ? gcodeMove.speed_factor * 100 : undefined}
+                label="Speed factor"
+                suffix="%"
+                min={1}
+                max={500}
+                disabled={!session.klippyReady}
+                onsubmit={(value) => session.sendGcode(speedFactorCommand(value))}
+              />
+            {:else}{percent(gcodeMove?.speed_factor)}{/if}
+          </dd>
+        </div>
+        <div>
+          <dt>Flow</dt>
+          <dd class="num">
+            {#if job.active}
+              <InlineNumber
+                value={gcodeMove?.extrude_factor != null ? gcodeMove.extrude_factor * 100 : undefined}
+                label="Flow factor"
+                suffix="%"
+                min={1}
+                max={200}
+                disabled={!session.klippyReady}
+                onsubmit={(value) => session.sendGcode(flowFactorCommand(value))}
+              />
+            {:else}{percent(gcodeMove?.extrude_factor)}{/if}
+          </dd>
+        </div>
         {#if job.metadata?.filament_type}<div><dt>Material</dt><dd>{job.metadata.filament_type}</dd></div>{/if}
       </dl>
+    {/if}
+
+    {#if job.active && objects.length > 0}
+      <div class="objects">
+        <span class="objects-title">Objects</span>
+        <ul>
+          {#each objects as object (object.name)}
+            <li class:excluded={object.excluded}>
+              <span class="object-name" title={object.name}>
+                {#if object.current && !object.excluded}<span class="dot" aria-label="Printing now"></span>{/if}
+                {object.label}
+              </span>
+              {#if object.excluded}
+                <span class="muted object-state">Excluded</span>
+              {:else}
+                <ConfirmButton
+                  label="Exclude"
+                  confirmLabel="Exclude?"
+                  confirmVariant="danger"
+                  variant="ghost"
+                  disabled={!session.klippyReady}
+                  onconfirm={() => session.sendGcode(excludeObjectCommand(object.name))}
+                />
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      </div>
     {/if}
 
     {#if job.active}
@@ -217,6 +289,14 @@
   dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
   dt { font-size: var(--text-xs); color: var(--text-muted); }
   dd { margin: 0; font-size: var(--text-lg); }
+  .objects { display: flex; flex-direction: column; gap: var(--space-1); }
+  .objects-title { font-size: var(--text-xs); color: var(--text-muted); }
+  .objects ul { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow-y: auto; }
+  .objects li { display: flex; align-items: center; gap: var(--space-2); min-height: 38px; }
+  .object-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .excluded .object-name { color: var(--text-faint); text-decoration: line-through; }
+  .object-state { font-size: var(--text-xs); }
+  .dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--accent); }
   .actions { margin-top: auto; display: flex; gap: var(--space-2); }
   .actions :global(.btn) { flex: 1; }
 

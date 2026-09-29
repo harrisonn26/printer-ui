@@ -63,6 +63,71 @@ export const moveCommand = (
   ].join('\n')
 }
 
+/** Extrude (positive) or retract (negative) `amount` mm at `rate` mm/s, in relative E mode. */
+export const extrudeCommand = (amount: number, rate: number, { clientMacro = false } = {}): string => {
+  const feed = Math.round(rate * 60)
+  if (clientMacro) return `_CLIENT_LINEAR_MOVE E=${amount} F=${feed}`
+  return [
+    'SAVE_GCODE_STATE NAME=_ui_extrude',
+    'M83',
+    `G1 E${amount} F${feed}`,
+    'RESTORE_GCODE_STATE NAME=_ui_extrude'
+  ].join('\n')
+}
+
+/** M220/M221 take a whole percentage. */
+export const speedFactorCommand = (percent: number): string => `M220 S${Math.round(percent)}`
+export const flowFactorCommand = (percent: number): string => `M221 S${Math.round(percent)}`
+
+const setParams = (command: string, params: Record<string, number | undefined>): string => {
+  const parts = Object.entries(params)
+    .filter((entry): entry is [string, number] => entry[1] !== undefined && Number.isFinite(entry[1]))
+    .map(([key, value]) => `${key}=${value}`)
+  return [command, ...parts].join(' ')
+}
+
+export const pressureAdvanceCommand = (
+  extruder: string,
+  values: { advance?: number, smoothTime?: number }
+): string => setParams(`SET_PRESSURE_ADVANCE EXTRUDER=${encodeParamValue(extruder)}`, {
+  ADVANCE: values.advance,
+  SMOOTH_TIME: values.smoothTime
+})
+
+export const velocityLimitCommand = (values: {
+  velocity?: number
+  accel?: number
+  squareCornerVelocity?: number
+  minimumCruiseRatio?: number
+}): string => setParams('SET_VELOCITY_LIMIT', {
+  VELOCITY: values.velocity,
+  ACCEL: values.accel,
+  SQUARE_CORNER_VELOCITY: values.squareCornerVelocity,
+  MINIMUM_CRUISE_RATIO: values.minimumCruiseRatio
+})
+
+export const retractionCommand = (values: {
+  retractLength?: number
+  retractSpeed?: number
+  unretractExtraLength?: number
+  unretractSpeed?: number
+}): string => setParams('SET_RETRACTION', {
+  RETRACT_LENGTH: values.retractLength,
+  RETRACT_SPEED: values.retractSpeed,
+  UNRETRACT_EXTRA_LENGTH: values.unretractExtraLength,
+  UNRETRACT_SPEED: values.unretractSpeed
+})
+
+export const excludeObjectCommand = (name: string): string => `EXCLUDE_OBJECT NAME=${encodeParamValue(name)}`
+
+/**
+ * Write the live Z offset into the config. Printers homing Z with a probe
+ * store it as the probe's z_offset; endstop printers adjust position_endstop.
+ */
+export const zOffsetApplyCommand = (probeHomed: boolean): string => (
+  probeHomed ? 'Z_OFFSET_APPLY_PROBE' : 'Z_OFFSET_APPLY_ENDSTOP'
+)
+
 export const zAdjustCommand = (delta: number, zHomed: boolean): string => (
   `SET_GCODE_OFFSET Z_ADJUST=${delta > 0 ? '+' : ''}${delta} MOVE=${zHomed ? 1 : 0}`
 )
@@ -106,4 +171,30 @@ export const macroCommand = (name: string, values: Record<string, string> = {}):
     .filter(([, value]) => value.trim() !== '')
     .map(([key, value]) => `${key.toUpperCase()}=${encodeParamValue(value.trim())}`)
   return [name.toUpperCase(), ...params].join(' ')
+}
+
+export interface CommandSuggestion {
+  command: string
+  description: string
+}
+
+/**
+ * Commands from `printer.gcode.help` matching what's typed so far. Only the
+ * first word is completed; hidden `_` commands only show once asked for.
+ */
+export const commandSuggestions = (
+  help: Record<string, string>,
+  input: string,
+  limit = 6
+): CommandSuggestion[] => {
+  const typed = input.trimStart()
+  if (!typed || /\s/.test(typed)) return []
+  const prefix = typed.toUpperCase()
+  return Object.entries(help)
+    .filter(([command]) => command.toUpperCase().startsWith(prefix))
+    .filter(([command]) => !command.startsWith('_') || prefix.startsWith('_'))
+    .filter(([command]) => command.toUpperCase() !== prefix)
+    .sort(([a], [b]) => a.length - b.length || a.localeCompare(b))
+    .slice(0, limit)
+    .map(([command, description]) => ({ command: command.toUpperCase(), description }))
 }

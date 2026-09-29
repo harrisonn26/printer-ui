@@ -48,3 +48,16 @@ export const jobTitle = (path: string): string => {
   const base = fileBasename(path).replace(/\.(gcode|g|gco|bgcode)$/i, '')
   return base.replace(SLICER_SUFFIX, '') || base
 }
+
+/**
+ * Slicer object names as people know them: `MAIN-BODY.STL_ID_0_COPY_0` →
+ * `MAIN-BODY`, with a copy number when there is more than one.
+ */
+export const objectLabel = (name: string): string => {
+  const copy = /_ID_\d+_COPY_(\d+)$/i.exec(name)
+  const base = name
+    .replace(/_ID_\d+_COPY_\d+$/i, '')
+    .replace(/\.(stl|3mf|obj|step|stp|amf)$/i, '')
+  const copyNumber = copy ? Number(copy[1]) : 0
+  return copyNumber > 0 ? `${base} #${copyNumber + 1}` : base
+}

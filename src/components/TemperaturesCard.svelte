@@ -4,6 +4,7 @@
   import { setTargetCommand, targetKind } from '../lib/gcode'
   import { sensorKeys, seriesVar } from '../lib/sensors'
   import { toasts } from '../lib/toasts.svelte'
+  import { presetScript } from '../lib/moonraker/presets.svelte'
   import Button from '../lib/ui/Button.svelte'
   import Card from '../lib/ui/Card.svelte'
 
@@ -38,6 +39,7 @@
   })
 
   const anyHeating = $derived(rows.some(row => (row.target ?? 0) > 0))
+  const settableKeys = $derived(rows.filter(row => row.settable).map(row => row.key))
 
   const submit = async (row: Row, input: HTMLInputElement) => {
     const raw = input.value.trim()
@@ -77,6 +79,23 @@
     {/if}
   {/snippet}
 
+  {#if session.presets.list.length > 0 && settableKeys.length > 0}
+    <div class="presets" role="group" aria-label="Temperature presets">
+      {#each session.presets.list as preset (preset.id)}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!session.klippyReady}
+          title={Object.entries(preset.targets).map(([key, target]) => `${key} ${target}°`).join(', ')}
+          onclick={() => {
+            const script = presetScript(preset, settableKeys)
+            if (script) void session.sendGcode(script)
+          }}
+        >{preset.name}</Button>
+      {/each}
+    </div>
+  {/if}
+
   {#if rows.length === 0}
     <p class="muted empty">No sensors reported.</p>
   {:else}
@@ -113,6 +132,7 @@
 
 <style>
   .empty { margin: 0; font-size: var(--text-sm); }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--space-2); }
   ul { list-style: none; margin: 0; padding: 0; }
   li { display: flex; align-items: center; gap: var(--space-3); height: 42px; }
   .key { width: 14px; height: 3px; flex: none; border-radius: 2px; }

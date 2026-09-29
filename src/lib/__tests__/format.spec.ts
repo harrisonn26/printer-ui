@@ -1,4 +1,4 @@
-import { formatDuration, jobTitle, prettyObjectName } from '../format'
+import { formatDuration, jobTitle, objectLabel, prettyObjectName } from '../format'
 
 describe('formatDuration', () => {
   it.each([
@@ -40,5 +40,16 @@ describe('jobTitle', () => {
     ['_PLA_1h.gcode', '_PLA_1h']
   ])('%s → %s', (input, expected) => {
     expect(jobTitle(input)).toBe(expected)
+  })
+})
+
+describe('objectLabel', () => {
+  it.each([
+    ['MAIN-BODY.STL_ID_0_COPY_0', 'MAIN-BODY'],
+    ['Cube.stl_ID_2_COPY_1', 'Cube #2'],
+    ['bracket.3mf_ID_1_COPY_0', 'bracket'],
+    ['plain_name', 'plain_name']
+  ])('%s → %s', (input, expected) => {
+    expect(objectLabel(input)).toBe(expected)
   })
 })

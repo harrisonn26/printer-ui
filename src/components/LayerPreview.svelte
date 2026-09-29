@@ -175,6 +175,26 @@
     const accent = css('--accent')
     const faint = css('--text-faint')
 
+    // Excluded objects: outlined in red, dashed, so it's clear why they stop growing.
+    const exclude = session.printer.get('exclude_object')
+    if (exclude?.excluded_objects.length) {
+      ctx.save()
+      ctx.strokeStyle = css('--danger')
+      ctx.lineWidth = 1.5
+      ctx.setLineDash([5, 4])
+      for (const object of exclude.objects) {
+        if (!exclude.excluded_objects.includes(object.name) || !object.polygon?.length) continue
+        ctx.beginPath()
+        object.polygon.forEach(([px, py], index) => {
+          if (index === 0) ctx.moveTo(X(px), Y(py))
+          else ctx.lineTo(X(px), Y(py))
+        })
+        ctx.closePath()
+        ctx.stroke()
+      }
+      ctx.restore()
+    }
+
     // The layer below, for context.
     if (shown > 0) {
       const [from, to] = layerRange(p, shown - 1)

@@ -11,6 +11,7 @@ import { PrinterObjects } from './printer.svelte'
 import { ConsoleLog } from './console.svelte'
 import { ThermalHistory, type Reading } from './thermals.svelte'
 import { SystemState } from './system.svelte'
+import { Presets } from './presets.svelte'
 import { sensorKeys } from '../sensors'
 import { errorMessage, isNotFoundError, isSocketError, isUnauthorizedError } from './errors'
 import { clearTokens, getAccessToken, saveTokens } from './tokens'
@@ -56,6 +57,7 @@ class Session {
   readonly console = new ConsoleLog()
   readonly thermals = new ThermalHistory()
   readonly system = new SystemState()
+  readonly presets = new Presets()
   webcams = $state.raw<Moonraker.Webcam.Entry[]>([])
   /** Bumped when the gcodes folder or the print history changes; views refetch on it. */
   filesRevision = $state(0)
@@ -247,6 +249,7 @@ class Session {
     this.#loadConsole()
     this.#loadWebcams()
     void this.system.load((method, params) => this.call(method, params))
+    void this.presets.load((method, params) => this.call(method, params))
     this.#setStatus('ready')
   }
 

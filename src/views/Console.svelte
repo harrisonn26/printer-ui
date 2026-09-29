@@ -2,6 +2,7 @@
   import { tick } from 'svelte'
   import { mdiSend } from '@mdi/js'
   import { session } from '../lib/moonraker/session.svelte'
+  import { commandSuggestions } from '../lib/gcode'
   import Button from '../lib/ui/Button.svelte'
 
   const HISTORY_LIMIT = 100
@@ -13,6 +14,30 @@
   let stickToBottom = true
 
   const entries = $derived(session.console.entries)
+
+  // Klipper's command list (macros included), fetched once per connection.
+  let help = $state.raw<Record<string, string>>({})
+  let selected = $state(0)
+  let dismissed = $state(false)
+
+  $effect(() => {
+    if (!session.klippyReady) return
+    session.call<Record<string, string>>('printer.gcode.help')
+      .then(response => { help = response })
+      .catch(() => { help = {} })
+  })
+
+  const suggestions = $derived(dismissed ? [] : commandSuggestions(help, command))
+
+  $effect(() => {
+    void command
+    selected = 0
+  })
+
+  const complete = (value: string) => {
+    command = `${value} `
+    dismissed = false
+  }
 
   const time = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
@@ -39,11 +64,31 @@
     if (history.at(-1) !== script) history = [...history, script].slice(-HISTORY_LIMIT)
     historyIndex = -1
     command = ''
+    dismissed = false
     stickToBottom = true
     await session.sendGcode(script)
   }
 
   const onKeydown = (event: KeyboardEvent) => {
+    // With suggestions open, the arrows pick one and Tab takes it.
+    if (suggestions.length > 0) {
+      if (event.key === 'Tab') {
+        event.preventDefault()
+        const pick = suggestions[selected] ?? suggestions[0]
+        if (pick) complete(pick.command)
+        return
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault()
+        const step = event.key === 'ArrowDown' ? 1 : -1
+        selected = (selected + step + suggestions.length) % suggestions.length
+        return
+      }
+      if (event.key === 'Escape') {
+        dismissed = true
+        return
+      }
+    }
     if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
     if (history.length === 0) return
     event.preventDefault()
@@ -75,11 +120,31 @@
     {/each}
   </ol>
 
+  {#if suggestions.length > 0}
+    <ul class="suggestions" role="listbox" aria-label="Matching commands">
+      {#each suggestions as suggestion, index (suggestion.command)}
+        <li role="option" aria-selected={index === selected}>
+          <button
+            type="button"
+            class:selected={index === selected}
+            onmousedown={(event) => event.preventDefault()}
+            onclick={() => complete(suggestion.command)}
+          >
+            <span class="mono command">{suggestion.command}</span>
+            <span class="description">{suggestion.description}</span>
+          </button>
+        </li>
+      {/each}
+      <li class="hint" aria-hidden="true">Tab to complete · ↑↓ to choose · Esc to close</li>
+    </ul>
+  {/if}
+
   <form onsubmit={submit}>
     <span class="prompt mono" aria-hidden="true">&gt;</span>
     <input
       class="mono"
       bind:value={command}
+      oninput={() => { dismissed = false }}
       onkeydown={onKeydown}
       placeholder="Send G-code…"
       aria-label="G-code command"
@@ -94,6 +159,7 @@
 
 <style>
   .console {
+    position: relative;
     display: flex;
     flex-direction: column;
     /* Viewport minus the header (56px + border + gap) and the page's bottom padding. */
@@ -130,6 +196,37 @@
   .response .message { color: var(--text-muted); }
   .error .message { color: var(--danger); }
   .empty { color: var(--text-faint); font-family: var(--font-sans); }
+
+  .suggestions {
+    position: absolute;
+    left: var(--space-3);
+    right: var(--space-3);
+    bottom: 72px;
+    z-index: 2;
+    list-style: none;
+    margin: 0;
+    padding: var(--space-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
+  }
+  .suggestions button {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    text-align: left;
+    cursor: pointer;
+  }
+  .suggestions button.selected, .suggestions button:hover { background: var(--control); }
+  .command { font-size: var(--text-sm); color: var(--text); white-space: nowrap; }
+  .description { min-width: 0; font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .suggestions .hint { padding: var(--space-1) var(--space-3) 2px; font-size: 11px; color: var(--text-faint); }
 
   form {
     display: flex;

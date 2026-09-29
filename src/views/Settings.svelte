@@ -4,6 +4,7 @@
   import Button from '../lib/ui/Button.svelte'
   import Card from '../lib/ui/Card.svelte'
   import MachineCard from '../components/MachineCard.svelte'
+  import PresetsEditor from '../components/PresetsEditor.svelte'
   import TextField from '../lib/ui/TextField.svelte'
 
   let url = $state(session.url)
@@ -38,6 +39,8 @@
   </Card>
 
   <MachineCard />
+
+  <PresetsEditor />
 
   <Card title="Appearance">
     <div class="segmented" role="radiogroup" aria-label="Theme">

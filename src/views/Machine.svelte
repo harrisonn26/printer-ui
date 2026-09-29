@@ -2,14 +2,18 @@
   import BedMeshCard from '../components/BedMeshCard.svelte'
   import ConfigNoticesCard from '../components/ConfigNoticesCard.svelte'
   import HostCard from '../components/HostCard.svelte'
+  import ScrewsCard from '../components/ScrewsCard.svelte'
   import ServicesCard from '../components/ServicesCard.svelte'
+  import TuningCard from '../components/TuningCard.svelte'
   import UpdatesCard from '../components/UpdatesCard.svelte'
 </script>
 
 <div class="machine">
   <div class="notices"><ConfigNoticesCard /></div>
   <div class="col">
+    <TuningCard />
     <BedMeshCard />
+    <ScrewsCard />
     <UpdatesCard />
   </div>
   <div class="col">

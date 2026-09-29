@@ -1,9 +1,11 @@
 <script lang="ts">
   import { session } from '../lib/moonraker/session.svelte'
   import { job } from '../lib/moonraker/job.svelte'
-  import { moveCommand, zAdjustCommand, type Axis } from '../lib/gcode'
+  import { extrudeCommand, moveCommand, zAdjustCommand, zOffsetApplyCommand, type Axis } from '../lib/gcode'
   import Button from '../lib/ui/Button.svelte'
   import Card from '../lib/ui/Card.svelte'
+  import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
+  import InlineNumber from '../lib/ui/InlineNumber.svelte'
   import Segmented from '../lib/ui/Segmented.svelte'
 
   // mm/s, Fluidd's defaults.
@@ -14,6 +16,8 @@
   const Z_STEPS = [0.005, 0.01, 0.025, 0.05].map(value => ({ value, label: String(value) }))
 
   let step = $state(10)
+  let extrudeLength = $state(10)
+  let extrudeSpeed = $state(5)
   let zStep = $state(0.025)
   let pending = $state<string | null>(null)
 
@@ -25,6 +29,23 @@
   const position = $derived(motion?.live_position ?? toolhead?.position)
   const zOffset = $derived(gcodeMove?.homing_origin?.[2] ?? 0)
   const clientMacro = $derived(session.printer.has('gcode_macro _CLIENT_LINEAR_MOVE'))
+
+  const extruderKey = $derived(toolhead?.extruder || 'extruder')
+  const extruder = $derived(session.printer.raw(extruderKey))
+  const settings = $derived(session.printer.get('configfile')?.settings)
+  const canExtrude = $derived(extruder?.can_extrude === true)
+  const minExtrudeTemp = $derived(settings?.[extruderKey]?.min_extrude_temp as number | undefined)
+  const maxExtrude = $derived((settings?.[extruderKey]?.max_extrude_only_distance as number | undefined) ?? 50)
+
+  // Saving writes the offset into the probe or the Z endstop, then SAVE_CONFIG restarts Klipper.
+  const probeHomed = $derived(String(settings?.stepper_z?.endstop_pin ?? '').includes('probe'))
+  const zOffsetSet = $derived(Math.abs(zOffset) >= 0.0005)
+
+  const saveZOffset = async () => {
+    if (await session.sendGcode(zOffsetApplyCommand(probeHomed))) {
+      await session.sendGcode('SAVE_CONFIG')
+    }
+  }
 
   // Jogging mid-print would fight the job; Z offset is meant for exactly then.
   const canMove = $derived(session.klippyReady && !job.active)
@@ -110,6 +131,60 @@
       >+</Button>
     </div>
     <Segmented options={Z_STEPS} bind:value={zStep} label="Z offset step in millimetres" size="sm" />
+    {#if zOffsetSet}
+      <div class="save">
+        <span class="hint">Resets when Klipper restarts unless saved.</span>
+        <ConfirmButton
+          label="Save"
+          confirmLabel="Save & restart?"
+          variant="outline"
+          disabled={!session.klippyReady || job.active}
+          title={job.active ? 'Save after the print: it restarts Klipper' : `Runs ${zOffsetApplyCommand(probeHomed)} then SAVE_CONFIG`}
+          onconfirm={saveZOffset}
+        />
+      </div>
+    {/if}
+  </div>
+
+  <div class="extrude">
+    <div class="row">
+      <span class="label">Extruder</span>
+      <InlineNumber
+        value={extrudeLength}
+        label="Extrude length"
+        suffix="mm"
+        min={0.1}
+        max={maxExtrude}
+        decimals={1}
+        width="56px"
+        onsubmit={(value) => { extrudeLength = value }}
+      />
+      <InlineNumber
+        value={extrudeSpeed}
+        label="Extrude speed"
+        suffix="mm/s"
+        min={0.1}
+        max={100}
+        decimals={1}
+        width="48px"
+        onsubmit={(value) => { extrudeSpeed = value }}
+      />
+    </div>
+    <div class="extrude-buttons">
+      <Button
+        disabled={!canMove || !canExtrude}
+        loading={pending === 'retract'}
+        onclick={() => send('retract', extrudeCommand(-extrudeLength, extrudeSpeed, { clientMacro }))}
+      >Retract</Button>
+      <Button
+        disabled={!canMove || !canExtrude}
+        loading={pending === 'extrude'}
+        onclick={() => send('extrude', extrudeCommand(extrudeLength, extrudeSpeed, { clientMacro }))}
+      >Extrude</Button>
+    </div>
+    {#if session.klippyReady && !canExtrude}
+      <p class="hint">Heat the nozzle{minExtrudeTemp ? ` to ${minExtrudeTemp}°` : ''} to extrude.</p>
+    {/if}
   </div>
 </Card>
 
@@ -133,4 +208,9 @@
   .zoffset { margin-top: var(--space-4); padding-top: var(--space-1); border-top: 1px solid var(--border); }
   .zoffset .row { margin-bottom: var(--space-2); }
   .value { flex: 1; font-size: var(--text-lg); }
+  .save { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); }
+  .save .hint { margin: 0; }
+  .extrude { margin-top: var(--space-4); padding-top: var(--space-1); border-top: 1px solid var(--border); }
+  .extrude .row { gap: var(--space-3); }
+  .extrude-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: var(--space-2); }
 </style>
