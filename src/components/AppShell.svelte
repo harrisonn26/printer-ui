@@ -23,7 +23,7 @@
   })
 
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
-  const SHORTCUT_HINT = isMac ? '⌘⇧X' : 'Ctrl+Shift+X'
+  const SHORTCUT_HINT = isMac ? '⌘+Shift+X' : 'Ctrl+Shift+X'
 
   let stopping = $state(false)
 
@@ -102,10 +102,9 @@
     margin-bottom: var(--space-4);
   }
   .shortcut {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 400;
-    opacity: 0.6;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    opacity: 0.7;
   }
   .host { font-weight: 700; }
   .desktop-nav { flex: 1; }
