@@ -94,3 +94,60 @@ describe('layerRange', () => {
     expect(layerRange(parsed, 1)).toEqual([2, 3])
   })
 })
+
+describe('slicer layer markers', () => {
+  it('uses ;LAYER_CHANGE / ;Z: over Z changes, so spiral vase layers stay whole', () => {
+    // Spiral: Z rises on every move within each layer.
+    const parsed = parseGcode(gcode([
+      'M83',
+      ';LAYER_CHANGE',
+      ';Z:0.2',
+      'G1 X10 Y0 Z0.2 E1',
+      'G1 X10 Y10 Z0.25 E1',
+      'G1 X0 Y10 Z0.3 E1',
+      ';LAYER_CHANGE',
+      ';Z:0.4',
+      'G1 X0 Y0 Z0.35 E1',
+      'G1 X10 Y0 Z0.4 E1'
+    ]))
+    expect(Array.from(parsed.layerStart)).toEqual([0, 3])
+    expect(Array.from(parsed.layerZ)).toEqual([expect.closeTo(0.2), expect.closeTo(0.4)])
+  })
+
+  it('leaves the start G-code purge line out of the layers and the framing', () => {
+    const parsed = parseGcode(gcode([
+      'M83',
+      'G1 X3 Y20 Z0.28',
+      'G1 Y120 E10',
+      ';LAYER_CHANGE',
+      ';Z:0.2',
+      'G1 X50 Y50 Z0.2',
+      'G1 X60 Y50 E1',
+      'G1 X60 Y60 E1'
+    ]))
+    expect(Array.from(parsed.layerStart)).toEqual([1])
+    expect([parsed.minX, parsed.minY, parsed.maxX, parsed.maxY]).toEqual([50, 50, 60, 60])
+  })
+
+  it('ignores markers with nothing printed after them', () => {
+    const parsed = parseGcode(gcode(['M83', ';LAYER_CHANGE', ';Z:0.2', 'G1 X1 Y0 E1', ';LAYER_CHANGE', ';Z:0.4', 'G1 Z10']))
+    expect(parsed.layerStart).toHaveLength(1)
+  })
+
+  it('reads Cura markers, taking Z from the first extrusion', () => {
+    const parsed = parseGcode(gcode(['M83', ';LAYER:0', 'G1 X0 Y0 Z0.3', 'G1 X5 Y0 E1', ';LAYER:1', 'G1 Z0.5', 'G1 X5 Y5 E1']))
+    expect(Array.from(parsed.layerZ)).toEqual([expect.closeTo(0.3), expect.closeTo(0.5)])
+  })
+})
+
+describe('repeated layer markers', () => {
+  it("folds a marker at the same Z into the previous layer (Orca's closing spiral pass)", () => {
+    const parsed = parseGcode(gcode([
+      'M83',
+      ';LAYER_CHANGE', ';Z:31.56', 'G1 X1 Y0 Z31.56 E1',
+      ';LAYER_CHANGE', ';Z:31.88', 'G1 X2 Y0 Z31.88 E1',
+      ';LAYER_CHANGE', ';Z:31.88', 'G1 X3 Y0 Z31.88 E1'
+    ]))
+    expect(parsed.layerStart).toHaveLength(2)
+  })
+})

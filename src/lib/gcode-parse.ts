@@ -2,6 +2,12 @@
 // segment tagged with the byte offset of its command so Klipper's
 // virtual_sdcard.file_position maps straight onto the path.
 //
+// Layers come from the slicer's own markers when the file has them
+// (`;LAYER_CHANGE` + `;Z:` from Orca/Prusa/Bambu, `;LAYER:n` from Cura) —
+// the only reliable way for spiral vase prints, where Z rises on nearly every
+// move — and from Z changes otherwise. Moves before the first marker (a purge
+// line in the start G-code) belong to no layer.
+//
 // Adapted from fluidd-lite's parser, with arcs (G2/G3 I/J) linearised.
 
 export interface ParsedGcode {
@@ -60,7 +66,12 @@ const CHAR = { G: 71, M: 77, X: 88, Y: 89, Z: 90, E: 69, I: 73, J: 74, SPACE: 32
 export const parseGcode = (text: string): ParsedGcode => {
   const x0 = f32(), y0 = f32(), x1 = f32(), y1 = f32()
   const byte = u32()
+  // Z-change layers, and slicer-marker layers; the markers win if present.
   const layerStart = u32(), layerZ = f32()
+  const markerStart = u32(), markerZ = f32()
+  let pendingMarker = false
+  let pendingMarkerZ = Number.NaN
+  let lastMarkerZ = Number.NaN
 
   let x = 0, y = 0, z = 0, e = 0
   let absoluteXYZ = true, absoluteE = true
@@ -93,6 +104,16 @@ export const parseGcode = (text: string): ParsedGcode => {
     let i = pos
     while (i < end && text.charCodeAt(i) === CHAR.SPACE) i++
     const letter = text.charCodeAt(i)
+
+    // Comment-only lines: the slicer's layer markers.
+    if (i === semicolon) {
+      if (text.startsWith(';LAYER_CHANGE', i) || text.startsWith(';LAYER:', i)) {
+        pendingMarker = true
+        pendingMarkerZ = Number.NaN
+      } else if (pendingMarker && text.startsWith(';Z:', i)) {
+        pendingMarkerZ = Number.parseFloat(text.slice(i + 3, eol))
+      }
+    }
 
     if (letter === CHAR.G || letter === CHAR.M) {
       let code = 0
@@ -131,6 +152,19 @@ export const parseGcode = (text: string): ParsedGcode => {
             currentLayerZ = nz
             layerStart.push(x0.length)
             layerZ.push(nz)
+          }
+          // A marker opens its layer at the first extrusion after it, so
+          // markers with nothing printed after them make no empty layers.
+          // A marker repeating the previous layer's Z (Orca's closing spiral
+          // pass) continues that layer rather than adding one.
+          if (pendingMarker) {
+            pendingMarker = false
+            const markedZ = Number.isNaN(pendingMarkerZ) ? nz : pendingMarkerZ
+            if (markerZ.length === 0 || Math.abs(markedZ - lastMarkerZ) > 1e-6) {
+              markerStart.push(x0.length)
+              markerZ.push(markedZ)
+              lastMarkerZ = markedZ
+            }
           }
 
           if (code >= 2 && (ci !== 0 || cj !== 0)) {
@@ -186,11 +220,28 @@ export const parseGcode = (text: string): ParsedGcode => {
     pos = eol + 1
   }
 
+  const useMarkers = markerStart.length > 0
+  const starts = useMarkers ? markerStart.done() : layerStart.done()
+  const zs = useMarkers ? markerZ.done() : layerZ.done()
+  const xs0 = x0.done(), ys0 = y0.done(), xs1 = x1.done(), ys1 = y1.done()
+
+  // Frame the model, not the start G-code: skip moves before the first layer.
+  const first = starts[0] ?? 0
+  if (first > 0) {
+    minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity
+    for (let i = first; i < xs0.length; i++) {
+      minX = Math.min(minX, xs0[i]!, xs1[i]!)
+      maxX = Math.max(maxX, xs0[i]!, xs1[i]!)
+      minY = Math.min(minY, ys0[i]!, ys1[i]!)
+      maxY = Math.max(maxY, ys0[i]!, ys1[i]!)
+    }
+  }
+
   return {
-    x0: x0.done(), y0: y0.done(), x1: x1.done(), y1: y1.done(),
+    x0: xs0, y0: ys0, x1: xs1, y1: ys1,
     byte: byte.done(),
-    layerStart: layerStart.done(),
-    layerZ: layerZ.done(),
+    layerStart: starts,
+    layerZ: zs,
     minX: Number.isFinite(minX) ? minX : 0,
     minY: Number.isFinite(minY) ? minY : 0,
     maxX: Number.isFinite(maxX) ? maxX : 0,
