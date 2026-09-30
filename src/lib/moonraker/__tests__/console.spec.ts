@@ -1,4 +1,4 @@
-import { ConsoleLog, appendHistory } from '../console.svelte'
+import { ConsoleLog, appendHistory, normalizeScript } from '../console.svelte'
 
 describe('appendHistory', () => {
   it('keeps single-line commands without consecutive repeats', () => {
@@ -10,7 +10,7 @@ describe('appendHistory', () => {
   })
 
   it('caps the length', () => {
-    expect(appendHistory(['a', 'b', 'c'], 'd', 3)).toEqual(['b', 'c', 'd'])
+    expect(appendHistory(['a', 'b', 'c'], 'd', { limit: 3 })).toEqual(['b', 'c', 'd'])
   })
 })
 
@@ -26,5 +26,21 @@ describe('ConsoleLog history', () => {
     log.push('ok T:200', 'response')
     log.clear()
     expect(log.history).toEqual(['G28', 'BED_MESH_CALIBRATE', 'M105'])
+  })
+})
+
+describe('normalizeScript', () => {
+  it('keeps one command per line and drops blank lines and trailing spaces', () => {
+    expect(normalizeScript('BLTOUCH_DEBUG COMMAND=reset  \r\n\r\nBLTOUCH_DEBUG COMMAND=pin_up\nQUERY_PROBE\n'))
+      .toBe('BLTOUCH_DEBUG COMMAND=reset\nBLTOUCH_DEBUG COMMAND=pin_up\nQUERY_PROBE')
+  })
+})
+
+describe('recalling pasted scripts', () => {
+  it('keeps typed multi-line scripts but not button scripts', () => {
+    const log = new ConsoleLog()
+    log.push('G90\nG1 X10', 'command')
+    log.push('BLTOUCH_DEBUG COMMAND=reset\nQUERY_PROBE', 'command', { recall: true })
+    expect(log.history).toEqual(['BLTOUCH_DEBUG COMMAND=reset\nQUERY_PROBE'])
   })
 })

@@ -11,14 +11,23 @@ const MAX_ENTRIES = 1000
 const MAX_HISTORY = 200
 
 /**
- * Add `command` to a recall history: single-line commands only (multi-line
- * scripts come from buttons, not typing), no consecutive repeats.
+ * Add `command` to a recall history, skipping consecutive repeats. Multi-line
+ * scripts only when `multiline` — ones typed or pasted into the console, not
+ * the scripts buttons send.
  */
-export const appendHistory = (history: string[], command: string, limit = MAX_HISTORY): string[] => {
+export const appendHistory = (history: string[], command: string, { multiline = false, limit = MAX_HISTORY } = {}): string[] => {
   const line = command.trim()
-  if (!line || line.includes('\n') || history.at(-1) === line) return history
+  if (!line || (!multiline && line.includes('\n')) || history.at(-1) === line) return history
   return [...history, line].slice(-limit)
 }
+
+/** Tidy a typed or pasted script: one command per line, no blank lines or trailing spaces. */
+export const normalizeScript = (text: string): string => text
+  .replace(/\r\n?/g, '\n')
+  .split('\n')
+  .map(line => line.trimEnd())
+  .filter(line => line.trim() !== '')
+  .join('\n')
 
 const kindOf = (message: string, type: 'command' | 'response'): ConsoleKind => (
   type === 'response' && message.startsWith('!!') ? 'error' : type
@@ -31,8 +40,8 @@ export class ConsoleLog {
   history = $state.raw<string[]>([])
   #nextId = 1
 
-  push (message: string, type: 'command' | 'response', time = Date.now()): void {
-    if (type === 'command') this.history = appendHistory(this.history, message)
+  push (message: string, type: 'command' | 'response', { time = Date.now(), recall = false } = {}): void {
+    if (type === 'command') this.history = appendHistory(this.history, message, { multiline: recall })
     this.entries.push({ id: this.#nextId++, time, kind: kindOf(message, type), message })
     if (this.entries.length > MAX_ENTRIES) this.entries.splice(0, this.entries.length - MAX_ENTRIES)
   }
@@ -41,7 +50,7 @@ export class ConsoleLog {
   load (store: Moonraker.DataStore.GcodeStoreEntry[]): void {
     this.history = store
       .filter(entry => entry.type === 'command')
-      .reduce((history, entry) => appendHistory(history, entry.message), [] as string[])
+      .reduce((history, entry) => appendHistory(history, entry.message, { multiline: true }), [] as string[])
     this.entries = store.slice(-MAX_ENTRIES).map(entry => ({
       id: this.#nextId++,
       time: entry.time ? entry.time * 1000 : Date.now(),

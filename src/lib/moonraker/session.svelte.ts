@@ -161,8 +161,9 @@ class Session {
    * Send G-code as the user: echoed to the console, failures surfaced as a
    * toast and a console error. Resolves true when Klipper accepted it.
    */
-  async sendGcode (script: string): Promise<boolean> {
-    this.console.push(script, 'command')
+  async sendGcode (script: string, { typed = false } = {}): Promise<boolean> {
+    // Typed or pasted scripts go into the ↑ history whole; button scripts don't.
+    this.console.push(script, 'command', { recall: typed })
     try {
       await this.call('printer.gcode.script', { script })
       return true

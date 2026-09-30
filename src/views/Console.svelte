@@ -3,9 +3,13 @@
   import { mdiSend } from '@mdi/js'
   import { session } from '../lib/moonraker/session.svelte'
   import { commandSuggestions } from '../lib/gcode'
+  import { normalizeScript } from '../lib/moonraker/console.svelte'
   import Button from '../lib/ui/Button.svelte'
 
+  const MAX_ROWS = 8
+
   let log: HTMLOListElement | undefined = $state()
+  let box: HTMLTextAreaElement | undefined = $state()
   let command = $state('')
   // Every command the console knows about, including ones loaded from Moonraker
   // and sent from other pages or clients, so what you see is what ↑ recalls.
@@ -57,16 +61,33 @@
     })
   })
 
-  const submit = async (event: SubmitEvent) => {
-    event.preventDefault()
-    const script = command.trim()
+  // Grows with pasted or Shift+Enter lines, then scrolls.
+  const rows = $derived(Math.min(Math.max(command.split('\n').length, 1), MAX_ROWS))
+
+  const send = async () => {
+    const script = normalizeScript(command)
     if (!script) return
 
     historyIndex = -1
     command = ''
     suggesting = false
     stickToBottom = true
-    await session.sendGcode(script)
+    // Several lines run in order as one script, as Klipper does for a file.
+    await session.sendGcode(script, { typed: true })
+  }
+
+  const submit = (event: SubmitEvent) => {
+    event.preventDefault()
+    void send()
+  }
+
+  /** ↑/↓ only walk history from the first/last line; inside a block they move the caret. */
+  const atEdge = (direction: 'up' | 'down') => {
+    if (!box) return true
+    const { selectionStart, selectionEnd, value } = box
+    return direction === 'up'
+      ? !value.slice(0, selectionStart).includes('\n')
+      : !value.slice(selectionEnd).includes('\n')
   }
 
   const onKeydown = (event: KeyboardEvent) => {
@@ -89,8 +110,14 @@
         return
       }
     }
+    // Enter sends; Shift+Enter adds a line.
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      void send()
+      return
+    }
     if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
-    if (history.length === 0) return
+    if (history.length === 0 || !atEdge(event.key === 'ArrowUp' ? 'up' : 'down')) return
     event.preventDefault()
 
     if (event.key === 'ArrowUp') {
@@ -142,18 +169,20 @@
 
   <form onsubmit={submit}>
     <span class="prompt mono" aria-hidden="true">&gt;</span>
-    <input
+    <textarea
+      bind:this={box}
       class="mono"
       bind:value={command}
+      {rows}
       oninput={() => { suggesting = true; historyIndex = -1 }}
       onkeydown={onKeydown}
-      placeholder="Send G-code…"
+      placeholder="Send G-code…  (Shift+Enter for another line; pasting several lines works)"
       aria-label="G-code command"
       autocomplete="off"
       autocapitalize="characters"
       spellcheck="false"
       disabled={!session.ready}
-    />
+    ></textarea>
     <Button type="submit" variant="primary" icon={mdiSend} aria-label="Send" disabled={!session.ready || !command.trim()} />
   </form>
 </section>
@@ -231,21 +260,26 @@
 
   form {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: var(--space-2);
     padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
     border-top: 1px solid var(--border);
   }
-  input {
+  .prompt { align-self: flex-start; padding-top: 11px; }
+  textarea {
     flex: 1;
     min-width: 0;
-    height: var(--control-height);
+    min-height: var(--control-height);
+    padding: 10px 0;
     border: 0;
     background: transparent;
     font-size: var(--text-md);
+    line-height: 1.5;
+    resize: none;
+    overflow-y: auto;
   }
-  input:focus { outline: none; }
-  input::placeholder { color: var(--text-faint); }
+  textarea:focus { outline: none; }
+  textarea::placeholder { color: var(--text-faint); }
 
   @media (max-width: 760px) {
     .console { height: calc(100svh - 57px - var(--space-3) - 64px - var(--space-4) - env(safe-area-inset-bottom)); }
