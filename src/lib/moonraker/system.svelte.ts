@@ -2,7 +2,11 @@
 // power devices. Loaded once the session is ready and kept current by
 // Moonraker's notifications.
 
+import { parseHostBattery, type HostBattery } from '../battery'
+
 type Call = <T>(method: string, params?: Record<string, unknown>) => Promise<T>
+
+const BATTERY_POLL_MS = 60_000
 
 const UPDATE_LOG_LIMIT = 200
 
@@ -14,6 +18,9 @@ export class SystemState {
   /** Output of the update in progress, newest last. */
   updateLog = $state<string[]>([])
   updating = $state<string | null>(null)
+  /** From deploy/host-battery.py; null when the host has none or it isn't installed. */
+  battery = $state.raw<HostBattery | null>(null)
+  #batteryTimer: ReturnType<typeof setInterval> | null = null
 
   async load (call: Call): Promise<void> {
     const settle = async <T>(promise: Promise<T>, apply: (value: T) => void) => {
@@ -27,8 +34,21 @@ export class SystemState {
       settle(call<Moonraker.Machine.SystemInfoResponse>('machine.system_info'), r => { this.info = r.system_info }),
       settle(call<Moonraker.ProcStats.Response>('machine.proc_stats'), r => { this.stats = r }),
       settle(call<Moonraker.UpdateManager.StatusResponse>('machine.update.status'), r => { this.updates = r }),
-      settle(call<Moonraker.Power.DevicesResponse>('machine.device_power.devices'), r => { this.power = r.devices })
+      settle(call<Moonraker.Power.DevicesResponse>('machine.device_power.devices'), r => { this.power = r.devices }),
+      this.#loadBattery(call)
     ])
+    // Moonraker doesn't announce database writes, so the battery is polled.
+    if (this.#batteryTimer) clearInterval(this.#batteryTimer)
+    this.#batteryTimer = setInterval(() => { void this.#loadBattery(call) }, BATTERY_POLL_MS)
+  }
+
+  async #loadBattery (call: Call): Promise<void> {
+    try {
+      const response = await call<{ value: unknown }>('server.database.get_item', { namespace: 'printer-ui', key: 'host_battery' })
+      this.battery = parseHostBattery(response.value)
+    } catch {
+      this.battery = null
+    }
   }
 
   clear (): void {
@@ -38,6 +58,9 @@ export class SystemState {
     this.power = []
     this.updateLog = []
     this.updating = null
+    this.battery = null
+    if (this.#batteryTimer) clearInterval(this.#batteryTimer)
+    this.#batteryTimer = null
   }
 
   /** Returns true when the notification was ours. */

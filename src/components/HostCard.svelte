@@ -3,6 +3,7 @@
   import { job } from '../lib/moonraker/job.svelte'
   import { formatBytes } from '../lib/files'
   import { formatDuration } from '../lib/format'
+  import { batteryLabel } from '../lib/battery'
   import Card from '../lib/ui/Card.svelte'
   import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
 
@@ -45,6 +46,7 @@
   }
 
   const busy = $derived(job.active)
+  const battery = $derived(session.system.battery)
 </script>
 
 <Card title="Host">
@@ -75,6 +77,14 @@
       <span class="value num">{stats?.cpu_temp == null ? '—' : `${stats.cpu_temp.toFixed(1)}°`}</span>
       {#if uptime != null}<span class="sub num">up {uptimeText(uptime)}</span>{/if}
     </div>
+    {#if battery}
+      <div class="tile" class:alert={battery.onBattery && !battery.stale}>
+        <span class="label">Battery</span>
+        <span class="value num">{battery.capacity == null ? '—' : `${battery.capacity}%`}</span>
+        <div class="meter"><div class="fill" style:width="{battery.capacity ?? 0}%"></div></div>
+        <span class="sub">{battery.stale ? 'No recent reading' : batteryLabel(battery)}</span>
+      </div>
+    {/if}
   </div>
 
   {#if throttled.length}
@@ -126,6 +136,9 @@
   .sub { font-size: 11px; color: var(--text-faint); }
   .meter { height: 4px; margin: var(--space-1) 0 2px; border-radius: 999px; background: var(--control); overflow: hidden; }
   .fill { height: 100%; background: var(--accent); transition: width 400ms ease; }
+  .tile.alert { box-shadow: inset 0 0 0 1px var(--warning); }
+  .tile.alert .fill { background: var(--warning); }
+  .tile.alert .sub { color: var(--warning); }
 
   .throttled {
     margin: var(--space-3) 0 0;

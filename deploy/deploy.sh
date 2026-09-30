@@ -21,7 +21,7 @@ tar -C dist -cz . | ssh "$HOST" "set -e
   if [ -d $REMOTE_DIR/dist ]; then mv $REMOTE_DIR/dist $REMOTE_DIR/dist.old; fi
   mv $REMOTE_DIR/dist.new $REMOTE_DIR/dist
   rm -rf $REMOTE_DIR/dist.old"
-scp -q deploy/nginx-printer-ui.conf deploy/nginx-printer-ui-ender5.conf "$HOST:$REMOTE_DIR/"
+scp -q deploy/nginx-printer-ui.conf deploy/nginx-printer-ui-ender5.conf deploy/host-battery.py "$HOST:$REMOTE_DIR/"
 
 echo
 echo "Deployed to $HOST:~/$REMOTE_DIR/dist"

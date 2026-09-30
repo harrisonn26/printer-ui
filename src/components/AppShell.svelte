@@ -89,6 +89,12 @@
   </header>
 
   <main>
+    {#if session.system.battery?.onBattery && !session.system.battery.stale}
+      <div class="power-alert" role="alert">
+        <strong>The printer host is running on battery</strong>
+        <span>{session.system.battery.capacity ?? '?'}% left — mains power is out or unplugged.</span>
+      </div>
+    {/if}
     <ManualProbePanel />
     {@render children()}
   </main>
@@ -140,6 +146,19 @@
   .segmented a:hover { color: var(--text); }
   .segmented a.active { background: var(--control); color: var(--text); }
 
+  .power-alert {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    margin-bottom: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-lg);
+    background: var(--warning-soft);
+    font-size: var(--text-sm);
+  }
+  .power-alert strong { color: var(--warning); }
   main {
     flex: 1;
     width: 100%;
