@@ -5,11 +5,11 @@
   import { commandSuggestions } from '../lib/gcode'
   import Button from '../lib/ui/Button.svelte'
 
-  const HISTORY_LIMIT = 100
-
   let log: HTMLOListElement | undefined = $state()
   let command = $state('')
-  let history: string[] = []
+  // Every command the console knows about, including ones loaded from Moonraker
+  // and sent from other pages or clients, so what you see is what ↑ recalls.
+  const history = $derived(session.console.history)
   let historyIndex = -1
   let stickToBottom = true
 
@@ -62,7 +62,6 @@
     const script = command.trim()
     if (!script) return
 
-    if (history.at(-1) !== script) history = [...history, script].slice(-HISTORY_LIMIT)
     historyIndex = -1
     command = ''
     suggesting = false
