@@ -3,7 +3,7 @@
   import { job } from '../lib/moonraker/job.svelte'
   import Card from '../lib/ui/Card.svelte'
   import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
-  import { homeFirst, isHomed } from '../lib/gcode'
+  import { isHomed, probeCalibrateScript, probeCalibrationTarget } from '../lib/gcode'
 
   const settings = $derived(session.printer.get('configfile')?.settings)
   const probe = $derived(session.printer.get('probe'))
@@ -25,8 +25,30 @@
   const command = $derived(probeSection ? 'PROBE_CALIBRATE' : 'Z_ENDSTOP_CALIBRATE')
   const canRun = $derived(session.klippyReady && !job.active && !manual?.is_active)
 
-  // Calibration needs a homed printer; home first rather than fail.
-  const calibrate = () => session.sendGcode(homeFirst(command, homed))
+  const toolhead = $derived(session.printer.get('toolhead'))
+  const pair = (value: unknown): [number, number] | undefined => (
+    Array.isArray(value) && typeof value[0] === 'number' && typeof value[1] === 'number' ? [value[0], value[1]] : undefined
+  )
+  const num = (value: unknown) => (typeof value === 'number' ? value : 0)
+
+  // Start with the probe over the middle of the bed (it probes where it is,
+  // then brings the nozzle over that spot), homing first if needed.
+  const target = $derived.by(() => {
+    if (!toolhead?.axis_minimum || !toolhead.axis_maximum) return null
+    const section = probeSection ? settings?.[probeSection] : undefined
+    return probeCalibrationTarget({
+      meshMin: probeSection ? pair(settings?.bed_mesh?.mesh_min) : undefined,
+      meshMax: probeSection ? pair(settings?.bed_mesh?.mesh_max) : undefined,
+      axisMin: [toolhead.axis_minimum[0], toolhead.axis_minimum[1]],
+      axisMax: [toolhead.axis_maximum[0], toolhead.axis_maximum[1]],
+      probeOffset: [num(section?.x_offset), num(section?.y_offset)]
+    })
+  })
+
+  const calibrate = () => {
+    if (!target) return
+    return session.sendGcode(probeCalibrateScript(command, target.toolhead, homed))
+  }
 </script>
 
 {#if available}
@@ -44,14 +66,15 @@
     </dl>
     <p class="muted hint">
       Calibrate with the paper test: the nozzle lowers onto a sheet of paper until it just drags.
-      {isHomed(homed) ? '' : 'Homes first.'}
+      {isHomed(homed) ? '' : 'Homes first, then'}
+      {#if target}{isHomed(homed) ? 'Probes' : 'probes'} at the middle of the bed ({target.probe[0]}, {target.probe[1]}).{/if}
     </p>
 
     <div class="actions">
       <ConfirmButton
         label="Calibrate"
         confirmLabel={isHomed(homed) ? 'Start calibration?' : 'Home and calibrate?'}
-        disabled={!canRun}
+        disabled={!canRun || !target}
         title={job.active ? 'Not while printing' : `Runs ${command}`}
         onconfirm={calibrate}
       />

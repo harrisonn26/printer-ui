@@ -218,3 +218,49 @@ export const isHomed = (homedAxes: string | undefined, axes = 'xyz'): boolean =>
 export const homeFirst = (script: string, homedAxes: string | undefined): string => (
   isHomed(homedAxes) ? script : `G28\n${script}`
 )
+
+export interface ProbeCalibrationTarget {
+  /** Where the probe should touch: the middle of the probeable area. */
+  probe: [number, number]
+  /** Where that puts the toolhead (nozzle), clamped to the axis limits. */
+  toolhead: [number, number]
+}
+
+/**
+ * PROBE_CALIBRATE probes at the current XY and then moves the nozzle over
+ * that point, so start with the probe over the middle of the bed. The middle
+ * is the centre of the `[bed_mesh]` area (probe coordinates) when there is
+ * one, else of the axis travel.
+ */
+export const probeCalibrationTarget = (input: {
+  meshMin?: [number, number]
+  meshMax?: [number, number]
+  axisMin: [number, number]
+  axisMax: [number, number]
+  probeOffset: [number, number]
+}): ProbeCalibrationTarget => {
+  const low = input.meshMin ?? input.axisMin
+  const high = input.meshMax ?? input.axisMax
+  const probe: [number, number] = [(low[0] + high[0]) / 2, (low[1] + high[1]) / 2]
+  const clamp = (value: number, axis: 0 | 1) => Math.min(Math.max(value, input.axisMin[axis]), input.axisMax[axis])
+  const round = (value: number) => Math.round(value * 100) / 100
+  return {
+    probe: [round(probe[0]), round(probe[1])],
+    toolhead: [round(clamp(probe[0] - input.probeOffset[0], 0)), round(clamp(probe[1] - input.probeOffset[1], 1))]
+  }
+}
+
+/** Home if needed, lift, move to `toolhead`, then start the calibration. */
+export const probeCalibrateScript = (
+  command: 'PROBE_CALIBRATE' | 'Z_ENDSTOP_CALIBRATE',
+  toolhead: [number, number],
+  homedAxes: string | undefined,
+  { liftZ = 10, xySpeed = 130, zSpeed = 10 } = {}
+): string => homeFirst([
+  'SAVE_GCODE_STATE NAME=_ui_probe_calibrate',
+  'G90',
+  `G1 Z${liftZ} F${zSpeed * 60}`,
+  `G1 X${toolhead[0]} Y${toolhead[1]} F${xySpeed * 60}`,
+  'RESTORE_GCODE_STATE NAME=_ui_probe_calibrate',
+  command
+].join('\n'), homedAxes)

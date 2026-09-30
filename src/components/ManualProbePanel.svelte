@@ -1,12 +1,21 @@
 <script lang="ts">
   import { session } from '../lib/moonraker/session.svelte'
-  import { router } from '../lib/router.svelte'
   import { toasts } from '../lib/toasts.svelte'
   import Button from '../lib/ui/Button.svelte'
 
-  // Shown on every page while Klipper waits on a manual probe (PROBE_CALIBRATE,
-  // Z_ENDSTOP_CALIBRATE, BED_MESH with a manual probe…), however it was started.
+  // A modal on every page while Klipper waits on a manual probe
+  // (PROBE_CALIBRATE, Z_ENDSTOP_CALIBRATE, …), however it was started. It only
+  // goes away through Accept or Abort, because Klipper keeps waiting otherwise.
   const manual = $derived(session.printer.get('manual_probe'))
+  const open = $derived(manual?.is_active === true)
+
+  let dialog: HTMLDialogElement | undefined = $state()
+
+  $effect(() => {
+    if (!dialog) return
+    if (open && !dialog.open) dialog.showModal()
+    if (!open && dialog.open) dialog.close()
+  })
 
   const STEPS = [-1, -0.1, -0.05, -0.01, 0.01, 0.05, 0.1, 1]
 
@@ -28,8 +37,12 @@
   const hasBounds = $derived(manual?.z_position_lower != null || manual?.z_position_upper != null)
 </script>
 
-{#if manual?.is_active}
-  <section class="panel" aria-labelledby="manual-probe-title">
+<dialog
+  bind:this={dialog}
+  aria-labelledby="manual-probe-title"
+  oncancel={(event) => event.preventDefault()}
+>
+  {#if manual?.is_active}
     <div class="head">
       <div>
         <h2 id="manual-probe-title">Paper test</h2>
@@ -47,7 +60,6 @@
     <div class="steps" role="group" aria-label="Move the nozzle">
       {#each STEPS as step (step)}
         <Button
-          size="sm"
           mono
           disabled={busy}
           aria-label="{step < 0 ? 'Lower' : 'Raise'} {Math.abs(step)} millimetres"
@@ -56,42 +68,45 @@
       {/each}
     </div>
 
-    <div class="actions">
-      {#if hasBounds}
+    {#if hasBounds}
+      <div class="bisect">
         <Button size="sm" variant="ghost" disabled={busy} onclick={() => send('TESTZ Z=-')}>Halfway down</Button>
         <Button size="sm" variant="ghost" disabled={busy} onclick={() => send('TESTZ Z=+')}>Halfway up</Button>
-      {/if}
-      <span class="spacer"></span>
-      <Button size="sm" variant="ghost" disabled={busy} onclick={() => send('ABORT')}>Abort</Button>
-      <Button size="sm" variant="primary" disabled={busy} onclick={accept}>Accept</Button>
-    </div>
-    {#if router.current !== '/machine'}
-      <p class="muted foot">You can keep using the rest of the app; this stays here until you accept or abort.</p>
+      </div>
     {/if}
-  </section>
-{/if}
+
+    <div class="actions">
+      <Button variant="ghost" disabled={busy} onclick={() => send('ABORT')}>Abort</Button>
+      <Button variant="primary" disabled={busy} onclick={accept}>Accept</Button>
+    </div>
+  {/if}
+</dialog>
 
 <style>
-  .panel {
-    margin-bottom: var(--space-4);
-    padding: var(--space-4) var(--space-5);
-    border: 1px solid var(--accent);
+  dialog {
+    width: min(560px, calc(100vw - 2 * var(--space-4)));
+    padding: var(--space-5) var(--space-6);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
     background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
   }
+  dialog::backdrop { background: rgb(0 0 0 / 0.55); backdrop-filter: blur(2px); }
   .head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
-  h2 { margin: 0; font-size: var(--text-md); font-weight: 700; }
+  h2 { margin: 0; font-size: var(--text-lg); font-weight: 700; }
   .head p { margin: var(--space-1) 0 0; font-size: var(--text-sm); }
   .z { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
   .label { font-size: var(--text-xs); color: var(--text-muted); }
-  .value { font-size: var(--text-xl); }
+  .value { font-size: var(--text-2xl); line-height: 1.1; }
   .bounds { font-size: var(--text-xs); color: var(--text-faint); }
-  .steps { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; margin-top: var(--space-4); }
-  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
-  .spacer { flex: 1; }
-  .foot { margin: var(--space-2) 0 0; font-size: var(--text-xs); }
+  .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: var(--space-5); }
+  .bisect { display: flex; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
+  .actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--border); }
 
   @media (max-width: 760px) {
-    .steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    dialog { padding: var(--space-4); }
+    .head { flex-direction: column; }
+    .z { align-items: flex-start; }
   }
 </style>

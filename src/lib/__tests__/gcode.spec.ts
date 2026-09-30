@@ -11,6 +11,8 @@ import {
   commandSuggestions,
   homeFirst,
   isHomed,
+  probeCalibrateScript,
+  probeCalibrationTarget,
   pauseAtLayerCommand,
   pauseNextLayerCommand,
   macroCommand,
@@ -189,5 +191,38 @@ describe('homeFirst', () => {
   it('checks each axis', () => {
     expect(isHomed('zyx')).toBe(true)
     expect(isHomed('xz')).toBe(false)
+  })
+})
+
+describe('probeCalibrationTarget', () => {
+  it('puts the probe over the middle of the mesh area, nozzle offset from it', () => {
+    // The Ender 3 on 7125: mesh 10..203 × 10..207, BLTouch at -24, -14.5.
+    expect(probeCalibrationTarget({
+      meshMin: [10, 10], meshMax: [203, 207],
+      axisMin: [-6, -14], axisMax: [230, 225],
+      probeOffset: [-24, -14.5]
+    })).toEqual({ probe: [106.5, 108.5], toolhead: [130.5, 123] })
+  })
+
+  it('falls back to the middle of the axis travel and clamps to it', () => {
+    expect(probeCalibrationTarget({
+      axisMin: [0, 0], axisMax: [100, 100],
+      probeOffset: [60, 0]
+    })).toEqual({ probe: [50, 50], toolhead: [0, 50] })
+  })
+})
+
+describe('probeCalibrateScript', () => {
+  it('lifts, moves, then calibrates, homing first when needed', () => {
+    expect(probeCalibrateScript('PROBE_CALIBRATE', [130.5, 123], 'xy')).toBe([
+      'G28',
+      'SAVE_GCODE_STATE NAME=_ui_probe_calibrate',
+      'G90',
+      'G1 Z10 F600',
+      'G1 X130.5 Y123 F7800',
+      'RESTORE_GCODE_STATE NAME=_ui_probe_calibrate',
+      'PROBE_CALIBRATE'
+    ].join('\n'))
+    expect(probeCalibrateScript('PROBE_CALIBRATE', [1, 2], 'xyz').startsWith('SAVE_GCODE_STATE')).toBe(true)
   })
 })
