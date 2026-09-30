@@ -104,8 +104,14 @@
 
   const restartFor = async (file: string, backup: string | null) => {
     if (restartTarget(file) === 'moonraker') {
-      // The connection drops and comes back on its own.
-      await session.run('machine.services.restart', { service: session.system.info?.instance_ids?.moonraker ?? 'moonraker' })
+      // This printer's own Moonraker (hosts can run several); the connection
+      // drops and comes back on its own.
+      const service = session.system.info?.instance_ids?.moonraker
+      if (!service) {
+        toasts.push("Saved, but couldn't tell which Moonraker service to restart — restart it from the Machine page.", 'warning')
+        return
+      }
+      await session.run('machine.services.restart', { service })
       return
     }
     restart = { phase: 'restarting', file, backup, startedAt: Date.now(), sawDown: false }

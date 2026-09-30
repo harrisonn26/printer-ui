@@ -24,8 +24,9 @@
   const busy = $derived(job.active)
   // Restarting this printer's own Klipper ends its print. Everything else —
   // Moonraker, and the services of other printers on the same host — is fair game.
-  const ownKlipper = $derived(info?.instance_ids?.klipper ?? 'klipper')
-  const lockedService = (name: string) => busy && name === ownKlipper
+  const ownKlipper = $derived(info?.instance_ids?.klipper ?? null)
+  // Unknown instance: lock every Klipper service rather than guess.
+  const lockedService = (name: string) => busy && (ownKlipper ? name === ownKlipper : name.startsWith('klipper'))
 </script>
 
 <Card title="Services">
