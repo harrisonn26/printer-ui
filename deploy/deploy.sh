@@ -21,11 +21,15 @@ tar -C dist -cz . | ssh "$HOST" "set -e
   if [ -d $REMOTE_DIR/dist ]; then mv $REMOTE_DIR/dist $REMOTE_DIR/dist.old; fi
   mv $REMOTE_DIR/dist.new $REMOTE_DIR/dist
   rm -rf $REMOTE_DIR/dist.old"
-scp -q deploy/nginx-printer-ui.conf "$HOST:$REMOTE_DIR/"
+scp -q deploy/nginx-printer-ui.conf deploy/nginx-printer-ui-ender5.conf "$HOST:$REMOTE_DIR/"
 
 echo
 echo "Deployed to $HOST:~/$REMOTE_DIR/dist"
 echo "First deploy only — install the nginx site on the host (needs sudo):"
 echo "  sudo cp ~/$REMOTE_DIR/nginx-printer-ui.conf /etc/nginx/sites-available/printer-ui"
 echo "  sudo ln -s /etc/nginx/sites-available/printer-ui /etc/nginx/sites-enabled/printer-ui"
+echo "  sudo nginx -t && sudo systemctl reload nginx"
+echo "Ender 5 site (port 4412 → Moonraker 7126), likewise once:"
+echo "  sudo cp ~/$REMOTE_DIR/nginx-printer-ui-ender5.conf /etc/nginx/sites-available/printer-ui-ender5"
+echo "  sudo ln -s /etc/nginx/sites-available/printer-ui-ender5 /etc/nginx/sites-enabled/printer-ui-ender5"
 echo "  sudo nginx -t && sudo systemctl reload nginx"
