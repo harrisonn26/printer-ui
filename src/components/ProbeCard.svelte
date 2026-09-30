@@ -3,6 +3,7 @@
   import { job } from '../lib/moonraker/job.svelte'
   import Card from '../lib/ui/Card.svelte'
   import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
+  import { homeFirst, isHomed } from '../lib/gcode'
 
   const settings = $derived(session.printer.get('configfile')?.settings)
   const probe = $derived(session.printer.get('probe'))
@@ -25,7 +26,7 @@
   const canRun = $derived(session.klippyReady && !job.active && !manual?.is_active)
 
   // Calibration needs a homed printer; home first rather than fail.
-  const calibrate = () => session.sendGcode(homed === 'xyz' ? command : `G28\n${command}`)
+  const calibrate = () => session.sendGcode(homeFirst(command, homed))
 </script>
 
 {#if available}
@@ -43,13 +44,13 @@
     </dl>
     <p class="muted hint">
       Calibrate with the paper test: the nozzle lowers onto a sheet of paper until it just drags.
-      {homed === 'xyz' ? '' : 'Homes first.'}
+      {isHomed(homed) ? '' : 'Homes first.'}
     </p>
 
     <div class="actions">
       <ConfirmButton
         label="Calibrate"
-        confirmLabel={homed === 'xyz' ? 'Start calibration?' : 'Home and calibrate?'}
+        confirmLabel={isHomed(homed) ? 'Start calibration?' : 'Home and calibrate?'}
         disabled={!canRun}
         title={job.active ? 'Not while printing' : `Runs ${command}`}
         onconfirm={calibrate}

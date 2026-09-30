@@ -12,6 +12,7 @@ import { ConsoleLog } from './console.svelte'
 import { ThermalHistory, type Reading } from './thermals.svelte'
 import { SystemState } from './system.svelte'
 import { Presets } from './presets.svelte'
+import { meshCalibration } from './mesh-calibration.svelte'
 import { sensorKeys } from '../sensors'
 import { errorMessage, isNotFoundError, isSocketError, isUnauthorizedError } from './errors'
 import { clearTokens, getAccessToken, saveTokens } from './tokens'
@@ -444,6 +445,8 @@ class Session {
     this.#stopThermals()
     this.thermals.clear()
     this.system.clear()
+    // A calibration belongs to the connection it started on.
+    if (meshCalibration.active) meshCalibration.finish()
     this.webcams = []
     this.#identified = false
     this.printer.clear()

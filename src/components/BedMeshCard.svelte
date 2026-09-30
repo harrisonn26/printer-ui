@@ -2,7 +2,7 @@
   import { session } from '../lib/moonraker/session.svelte'
   import { job } from '../lib/moonraker/job.svelte'
   import { meshCalibration } from '../lib/moonraker/mesh-calibration.svelte'
-  import { encodeParamValue } from '../lib/gcode'
+  import { encodeParamValue, homeFirst, isHomed } from '../lib/gcode'
   import {
     activeMesh,
     axisValues,
@@ -98,6 +98,8 @@
   const rows = $derived(values.map((cells, index) => ({ cells, y: ys[index] ?? 0, index })).reverse())
 
   const canAct = $derived(session.klippyReady && !job.active && !meshCalibration.active)
+  const homedAxes = $derived(session.printer.get('toolhead')?.homed_axes)
+  const needsHoming = $derived(!isHomed(homedAxes))
 
   const cellColour = (value: number | null) => {
     if (value == null) return undefined
@@ -130,10 +132,10 @@
     confirmingCalibrate = false
     chosen = null
     meshCalibration.start(session.console.entries.at(-1)?.id ?? 0, meshState?.probed_matrix)
-    // Resolves when Klipper finishes the whole command, which is also how
-    // long probing takes; the effect above usually finishes first.
-    const ok = await send('calibrate', 'BED_MESH_CALIBRATE')
-    if (!ok && meshCalibration.active) meshCalibration.finish('Calibration failed')
+    // Resolves when Klipper has finished (or rejected) the whole command, so
+    // whatever the console showed, the probing view never outlives it.
+    const ok = await send('calibrate', homeFirst('BED_MESH_CALIBRATE', homedAxes))
+    if (meshCalibration.active) meshCalibration.finish(ok ? null : 'Klipper stopped the calibration — see the console')
   }
 </script>
 
@@ -242,9 +244,9 @@
       variant={confirmingCalibrate ? 'primary' : 'secondary'}
       disabled={!canAct}
       loading={probing}
-      title={job.active ? 'Not while printing' : 'Probes the bed; home first'}
+      title={job.active ? 'Not while printing' : needsHoming ? 'Homes the printer, then probes the bed' : 'Probes the bed'}
       onclick={calibrate}
-    >{probing ? 'Probing…' : confirmingCalibrate ? 'Start probing?' : 'Calibrate'}</Button>
+    >{probing ? 'Probing…' : confirmingCalibrate ? (needsHoming ? 'Home and calibrate?' : 'Start probing?') : 'Calibrate'}</Button>
   </div>
 </Card>
 

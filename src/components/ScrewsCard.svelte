@@ -4,12 +4,15 @@
   import Button from '../lib/ui/Button.svelte'
   import Card from '../lib/ui/Card.svelte'
   import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
+  import { homeFirst, isHomed } from '../lib/gcode'
 
   // Only shown when the config has [screws_tilt_adjust] or [bed_screws].
   const tilt = $derived(session.printer.get('screws_tilt_adjust'))
   const bedScrews = $derived(session.printer.get('bed_screws'))
   const settings = $derived(session.printer.get('configfile')?.settings)
   const canRun = $derived(session.klippyReady && !job.active)
+  const homedAxes = $derived(session.printer.get('toolhead')?.homed_axes)
+  const needsHoming = $derived(!isHomed(homedAxes))
 
   const screwName = (section: string, key: string) => {
     const name = settings?.[section]?.[`${key}_name`]
@@ -30,11 +33,11 @@
     {#snippet aside()}
       <ConfirmButton
         label="Measure"
-        confirmLabel="Probe screws?"
+        confirmLabel={needsHoming ? 'Home and probe?' : 'Probe screws?'}
         variant="ghost"
         disabled={!canRun}
-        title={job.active ? 'Not while printing' : 'Runs SCREWS_TILT_CALCULATE; home first'}
-        onconfirm={() => session.sendGcode('SCREWS_TILT_CALCULATE')}
+        title={job.active ? 'Not while printing' : 'Runs SCREWS_TILT_CALCULATE, homing first if needed'}
+        onconfirm={() => session.sendGcode(homeFirst('SCREWS_TILT_CALCULATE', homedAxes))}
       />
     {/snippet}
 
@@ -79,10 +82,10 @@
       <div class="actions">
         <ConfirmButton
           label="Start"
-          confirmLabel="Start levelling?"
+          confirmLabel={needsHoming ? 'Home and start?' : 'Start levelling?'}
           disabled={!canRun}
-          title={job.active ? 'Not while printing' : 'Runs BED_SCREWS_ADJUST; home first'}
-          onconfirm={() => session.sendGcode('BED_SCREWS_ADJUST')}
+          title={job.active ? 'Not while printing' : 'Runs BED_SCREWS_ADJUST, homing first if needed'}
+          onconfirm={() => session.sendGcode(homeFirst('BED_SCREWS_ADJUST', homedAxes))}
         />
       </div>
     {/if}

@@ -208,3 +208,13 @@ export const pauseNextLayerCommand = (enable: boolean): string => `SET_PAUSE_NEX
 
 /** The line Orca needs in its layer-change G-code for layer pauses (and layer counts) to work. */
 export const ORCA_LAYER_CHANGE_GCODE = 'SET_PRINT_STATS_INFO CURRENT_LAYER={layer_num + 1}'
+
+/** Axes a command needs homed before Klipper will run it. */
+export const isHomed = (homedAxes: string | undefined, axes = 'xyz'): boolean => (
+  [...axes].every(axis => (homedAxes ?? '').toLowerCase().includes(axis))
+)
+
+/** Prefix `G28` when the printer isn't fully homed, so calibrations don't fail on "Must home axis first". */
+export const homeFirst = (script: string, homedAxes: string | undefined): string => (
+  isHomed(homedAxes) ? script : `G28\n${script}`
+)

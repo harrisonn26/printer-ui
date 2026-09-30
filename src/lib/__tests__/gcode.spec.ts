@@ -9,6 +9,8 @@ import {
   velocityLimitCommand,
   zOffsetApplyCommand,
   commandSuggestions,
+  homeFirst,
+  isHomed,
   pauseAtLayerCommand,
   pauseNextLayerCommand,
   macroCommand,
@@ -173,5 +175,19 @@ describe('pause at layer', () => {
     expect(pauseAtLayerCommand(null)).toBe('SET_PAUSE_AT_LAYER ENABLE=0')
     expect(pauseNextLayerCommand(true)).toBe('SET_PAUSE_NEXT_LAYER ENABLE=1')
     expect(pauseNextLayerCommand(false)).toBe('SET_PAUSE_NEXT_LAYER ENABLE=0')
+  })
+})
+
+describe('homeFirst', () => {
+  it('homes only when an axis is missing', () => {
+    expect(homeFirst('BED_MESH_CALIBRATE', 'xyz')).toBe('BED_MESH_CALIBRATE')
+    expect(homeFirst('BED_MESH_CALIBRATE', 'xy')).toBe('G28\nBED_MESH_CALIBRATE')
+    expect(homeFirst('BED_MESH_CALIBRATE', '')).toBe('G28\nBED_MESH_CALIBRATE')
+    expect(homeFirst('BED_MESH_CALIBRATE', undefined)).toBe('G28\nBED_MESH_CALIBRATE')
+  })
+
+  it('checks each axis', () => {
+    expect(isHomed('zyx')).toBe(true)
+    expect(isHomed('xz')).toBe(false)
   })
 })
