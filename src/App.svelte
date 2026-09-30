@@ -21,6 +21,11 @@
       <Settings />
     {:else if router.current === '/jobs'}
       <Jobs />
+    {:else if router.current === '/config'}
+      <!-- The editor is loaded on first use, keeping it out of the main bundle. -->
+      {#await import('./views/Config.svelte') then { default: Config }}
+        <Config />
+      {/await}
     {:else if router.current === '/machine'}
       <Machine />
     {:else if router.current === '/console'}

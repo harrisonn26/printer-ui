@@ -89,8 +89,11 @@ bed mesh heatmap (active mesh and saved profiles), fans/pins/LEDs, host
 stats, services, updates, power devices, config warnings and SAVE_CONFIG,
 extrude/retract, speed and flow overrides, temperature presets (stored in
 Moonraker's database), exclude object, Z offset save, live tuning (pressure
-advance, limits, firmware retraction), console autocomplete, bed screws. WebRTC/HLS cameras are not supported yet. Not planned: file
-manager, config editor, MMU/AFC, Spoolman, timelapse.
+advance, limits, firmware retraction), console autocomplete, bed screws,
+config editor (CodeMirror with a Klipper-config mode, lazy-loaded; backs up
+before every save, restarts and offers a revert if Klipper rejects the
+config; backups with diffs, restore and tidy-up). WebRTC/HLS cameras are not supported yet. Not planned: file
+manager, MMU/AFC, Spoolman, timelapse.
 
 ## License
 

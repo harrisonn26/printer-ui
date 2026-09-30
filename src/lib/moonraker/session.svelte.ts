@@ -63,6 +63,7 @@ class Session {
   webcams = $state.raw<Moonraker.Webcam.Entry[]>([])
   /** Bumped when the gcodes folder or the print history changes; views refetch on it. */
   filesRevision = $state(0)
+  configRevision = $state(0)
   historyRevision = $state(0)
 
   ready = $derived(this.status === 'ready')
@@ -426,9 +427,9 @@ class Session {
         const roots = change && typeof change === 'object'
           ? [('item' in change ? change.item : null), ('source_item' in change ? change.source_item : null)]
           : []
-        if (roots.some(item => item && typeof item === 'object' && 'root' in item && item.root === 'gcodes')) {
-          this.filesRevision++
-        }
+        const inRoot = (root: string) => roots.some(item => item && typeof item === 'object' && 'root' in item && item.root === root)
+        if (inRoot('gcodes')) this.filesRevision++
+        if (inRoot('config')) this.configRevision++
         break
       }
       case 'notify_history_changed':
