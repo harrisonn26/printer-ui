@@ -1,7 +1,7 @@
 <script lang="ts">
   import { session } from '../lib/moonraker/session.svelte'
   import { job } from '../lib/moonraker/job.svelte'
-  import { formatDuration, jobTitle, objectLabel } from '../lib/format'
+  import { formatDuration, formatFinish, jobTitle, objectLabel } from '../lib/format'
   import { excludeObjectCommand, flowFactorCommand, speedFactorCommand } from '../lib/gcode'
   import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
   import InlineNumber from '../lib/ui/InlineNumber.svelte'
@@ -13,6 +13,7 @@
   import Thumbnail from '../lib/ui/Thumbnail.svelte'
   import CameraView from './CameraView.svelte'
   import LayerPreview from './LayerPreview.svelte'
+  import PauseAtLayer from './PauseAtLayer.svelte'
   import { browserTokenStore } from '../lib/moonraker/tokens'
 
   const CONFIRM_MS = 4000
@@ -131,6 +132,7 @@
           <span class="percent num">{Math.floor(job.progress * 100)}%</span>
           {#if job.remaining != null}
             <span class="muted remaining">{formatDuration(job.remaining)} left</span>
+            {#if job.active}<span class="finish">Done {formatFinish(job.remaining)}</span>{/if}
           {/if}
         </ProgressRing>
       </div>
@@ -138,7 +140,7 @@
       <div class="bar-row" aria-hidden="true">
         <span class="num">{Math.floor(job.progress * 100)}%</span>
         <div class="bar"><div class="fill" style:width="{job.progress * 100}%"></div></div>
-        {#if job.remaining != null}<span class="num muted">{formatDuration(job.remaining)} left</span>{/if}
+        {#if job.remaining != null}<span class="num muted">{formatDuration(job.remaining)} left · {formatFinish(job.remaining)}</span>{/if}
       </div>
 
       <dl>
@@ -179,6 +181,8 @@
         {#if job.metadata?.filament_type}<div><dt>Material</dt><dd>{job.metadata.filament_type}</dd></div>{/if}
       </dl>
     {/if}
+
+    <PauseAtLayer />
 
     {#if job.active && objects.length > 0}
       <div class="objects">
@@ -286,6 +290,7 @@
   .ring { align-self: center; }
   .percent { font-size: 2rem; font-weight: 600; line-height: 1; }
   .remaining { margin-top: var(--space-1); font-size: var(--text-xs); }
+  .finish { margin-top: 2px; font-size: var(--text-xs); font-weight: 600; color: var(--accent); }
   dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
   dt { font-size: var(--text-xs); color: var(--text-muted); }
   dd { margin: 0; font-size: var(--text-lg); }

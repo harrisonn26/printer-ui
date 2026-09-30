@@ -61,3 +61,16 @@ export const objectLabel = (name: string): string => {
   const copyNumber = copy ? Number(copy[1]) : 0
   return copyNumber > 0 ? `${base} #${copyNumber + 1}` : base
 }
+
+const clock = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+const dayClock = new Intl.DateTimeFormat('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true })
+
+/**
+ * When a job will finish, on a 12-hour clock: `5:42 PM`, or `Tue 9:05 AM`
+ * when that's not today.
+ */
+export const formatFinish = (remainingSeconds: number, now = new Date()): string => {
+  const finish = new Date(now.getTime() + remainingSeconds * 1000)
+  const sameDay = finish.toDateString() === now.toDateString()
+  return (sameDay ? clock : dayClock).format(finish)
+}

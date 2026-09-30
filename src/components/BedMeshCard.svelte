@@ -13,6 +13,7 @@
     type Mesh
   } from '../lib/mesh'
   import {
+    isMeshComplete,
     meshGridFromSettings,
     parseProbeLine,
     probeOffsetsFromSettings,
@@ -60,7 +61,8 @@
 
   const progress = $derived(meshCalibration.active && grid ? probeProgress(samples, grid, offsets) : null)
 
-  // Finished when Klipper publishes a new mesh; failed on a Klipper error.
+  // Finished on Klipper's "Mesh Bed Leveling Complete" (or, failing that, when
+  // it publishes a new mesh); failed on a Klipper error.
   $effect(() => {
     if (!meshCalibration.active) return
     const failed = runEntries.find(entry => entry.kind === 'error')
@@ -68,8 +70,14 @@
       meshCalibration.finish(failed.message.replace(/^!!\s*/, ''))
       return
     }
+    if (runEntries.some(entry => isMeshComplete(entry.message))) {
+      chosen = null
+      meshCalibration.finish()
+      return
+    }
+    // Calibration first clears the mesh (an empty matrix): only a filled one counts.
     const matrix = meshState?.probed_matrix
-    if (matrix && matrix !== meshCalibration.baseline && samples.length > 0) meshCalibration.finish()
+    if (matrix && matrix !== meshCalibration.baseline && (matrix[0]?.length ?? 0) > 0) meshCalibration.finish()
   })
 
   // --- The grid being shown: live probing, or a mesh

@@ -1,21 +1,33 @@
 // Live bed mesh calibration progress, read from Klipper's console output.
-// Each probe sample is reported as `probe at X,Y is z=Z`, at the toolhead's
-// position; the mesh point is that plus the probe's XY offset, and its mesh
-// value is Z minus the probe's z_offset (as bed_mesh computes it).
+// Klipper has reported probe samples two ways:
+//
+// - current: `probe: at X,Y bed will contact at z=Z` — X,Y is already the
+//   probe point and Z already the mesh value.
+// - older:   `probe at X,Y is z=Z` — X,Y is the toolhead, so the mesh point is
+//   that plus the probe's XY offset, and the value is Z minus its z_offset.
 
 export interface ProbeSample {
   x: number
   y: number
   z: number
+  /** True for the current format: coordinates and value need no probe offsets. */
+  adjusted: boolean
 }
 
-const PROBE_LINE = /probe at (-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?) is z=(-?\d+(?:\.\d+)?)/i
+const NUMBER = String.raw`(-?\d+(?:\.\d+)?)`
+const CURRENT_LINE = new RegExp(`probe: at ${NUMBER},\\s*${NUMBER} bed will contact at z=${NUMBER}`, 'i')
+const OLDER_LINE = new RegExp(`probe at ${NUMBER},\\s*${NUMBER} is z=${NUMBER}`, 'i')
 
 export const parseProbeLine = (message: string): ProbeSample | null => {
-  const match = PROBE_LINE.exec(message)
-  if (!match) return null
-  return { x: Number(match[1]), y: Number(match[2]), z: Number(match[3]) }
+  const current = CURRENT_LINE.exec(message)
+  if (current) return { x: Number(current[1]), y: Number(current[2]), z: Number(current[3]), adjusted: true }
+  const older = OLDER_LINE.exec(message)
+  if (older) return { x: Number(older[1]), y: Number(older[2]), z: Number(older[3]), adjusted: false }
+  return null
 }
+
+/** Klipper's line when BED_MESH_CALIBRATE finishes. */
+export const isMeshComplete = (message: string): boolean => /mesh bed leveling complete/i.test(message)
 
 export interface MeshGrid {
   min: [number, number]
@@ -87,8 +99,8 @@ export const probeProgress = (
   let offGrid = 0
 
   for (const sample of samples) {
-    const px = sample.x + offsets.x
-    const py = sample.y + offsets.y
+    const px = sample.adjusted ? sample.x : sample.x + offsets.x
+    const py = sample.adjusted ? sample.y : sample.y + offsets.y
     const ix = stepX ? Math.round((px - grid.min[0]) / stepX) : 0
     const iy = stepY ? Math.round((py - grid.min[1]) / stepY) : 0
     const onGrid = ix >= 0 && ix < countX && iy >= 0 && iy < countY &&
@@ -100,7 +112,7 @@ export const probeProgress = (
     }
     const row = values[iy]!
     if (row[ix] == null) done++
-    row[ix] = sample.z - offsets.z
+    row[ix] = sample.adjusted ? sample.z : sample.z - offsets.z
     current = [ix, iy]
   }
 

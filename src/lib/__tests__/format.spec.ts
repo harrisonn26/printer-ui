@@ -1,4 +1,4 @@
-import { formatDuration, jobTitle, objectLabel, prettyObjectName } from '../format'
+import { formatDuration, formatFinish, jobTitle, objectLabel, prettyObjectName } from '../format'
 
 describe('formatDuration', () => {
   it.each([
@@ -51,5 +51,19 @@ describe('objectLabel', () => {
     ['plain_name', 'plain_name']
   ])('%s → %s', (input, expected) => {
     expect(objectLabel(input)).toBe(expected)
+  })
+})
+
+describe('formatFinish', () => {
+  // Local time, so the assertions hold in any timezone.
+  const now = new Date(2026, 8, 30, 14, 5)
+
+  it('shows a 12-hour clock time for later today', () => {
+    expect(formatFinish(3 * 3600 + 37 * 60, now)).toBe('5:42 PM')
+    expect(formatFinish(0, now)).toBe('2:05 PM')
+  })
+
+  it('adds the weekday once it rolls past midnight', () => {
+    expect(formatFinish(19 * 3600, now)).toBe('Thu 9:05 AM')
   })
 })

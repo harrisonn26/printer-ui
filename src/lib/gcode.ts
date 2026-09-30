@@ -198,3 +198,13 @@ export const commandSuggestions = (
     .slice(0, limit)
     .map(([command, description]) => ({ command: command.toUpperCase(), description }))
 }
+
+/** Fluidd/Mainsail client macros: pause when the slicer reports reaching `layer`. */
+export const pauseAtLayerCommand = (layer: number | null): string => (
+  layer == null ? 'SET_PAUSE_AT_LAYER ENABLE=0' : `SET_PAUSE_AT_LAYER ENABLE=1 LAYER=${Math.round(layer)}`
+)
+
+export const pauseNextLayerCommand = (enable: boolean): string => `SET_PAUSE_NEXT_LAYER ENABLE=${enable ? 1 : 0}`
+
+/** The line Orca needs in its layer-change G-code for layer pauses (and layer counts) to work. */
+export const ORCA_LAYER_CHANGE_GCODE = 'SET_PRINT_STATS_INFO CURRENT_LAYER={layer_num + 1}'

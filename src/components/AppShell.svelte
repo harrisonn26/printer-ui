@@ -11,6 +11,7 @@
   import { machineState, tabTitle } from '../lib/machine'
   import { printers, printerLabel } from '../lib/printers.svelte'
   import PrinterSwitcher from './PrinterSwitcher.svelte'
+  import ManualProbePanel from './ManualProbePanel.svelte'
 
   let { children }: { children: Snippet } = $props()
 
@@ -88,6 +89,7 @@
   </header>
 
   <main>
+    <ManualProbePanel />
     {@render children()}
   </main>
 

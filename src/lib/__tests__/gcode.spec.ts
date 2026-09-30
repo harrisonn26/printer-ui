@@ -9,6 +9,8 @@ import {
   velocityLimitCommand,
   zOffsetApplyCommand,
   commandSuggestions,
+  pauseAtLayerCommand,
+  pauseNextLayerCommand,
   macroCommand,
   macroParams,
   moveCommand,
@@ -162,5 +164,14 @@ describe('commandSuggestions', () => {
 
   it('returns nothing for empty input', () => {
     expect(commandSuggestions(help, '  ')).toEqual([])
+  })
+})
+
+describe('pause at layer', () => {
+  it('sets, clears and pauses after the next layer', () => {
+    expect(pauseAtLayerCommand(120)).toBe('SET_PAUSE_AT_LAYER ENABLE=1 LAYER=120')
+    expect(pauseAtLayerCommand(null)).toBe('SET_PAUSE_AT_LAYER ENABLE=0')
+    expect(pauseNextLayerCommand(true)).toBe('SET_PAUSE_NEXT_LAYER ENABLE=1')
+    expect(pauseNextLayerCommand(false)).toBe('SET_PAUSE_NEXT_LAYER ENABLE=0')
   })
 })
