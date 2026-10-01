@@ -24,20 +24,19 @@
     .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
     .map(([key, result]) => ({ key, name: screwName('screws_tilt_adjust', key), ...result })))
 
-  // Where each screw sits on the bed, scaled into the square; y flipped so the front is at the bottom.
-  const toolhead = $derived(session.printer.get('toolhead'))
+  // Each screw's place relative to the others, spread across the square; y flipped so the front is at the bottom.
   const placed = $derived.by(() => {
     const points = results.map(result => screwPosition(settings?.screws_tilt_adjust?.[result.key]))
     if (points.some(point => point == null)) return null
     const xs = points.map(point => point![0])
     const ys = points.map(point => point![1])
-    const [minX, maxX] = [toolhead?.axis_minimum?.[0] ?? Math.min(...xs), toolhead?.axis_maximum?.[0] ?? Math.max(...xs)]
-    const [minY, maxY] = [toolhead?.axis_minimum?.[1] ?? Math.min(...ys), toolhead?.axis_maximum?.[1] ?? Math.max(...ys)]
+    const [minX, maxX] = [Math.min(...xs), Math.max(...xs)]
+    const [minY, maxY] = [Math.min(...ys), Math.max(...ys)]
     const scale = (value: number, min: number, max: number) => (max > min ? (value - min) / (max - min) : 0.5)
     return results.map((result, index) => ({
       ...result,
-      left: 18 + scale(xs[index], minX, maxX) * 64,
-      top: 82 - scale(ys[index], minY, maxY) * 64
+      left: 25 + scale(xs[index], minX, maxX) * 50,
+      top: 72 - scale(ys[index], minY, maxY) * 46
     }))
   })
 
