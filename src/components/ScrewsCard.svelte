@@ -5,7 +5,7 @@
   import Card from '../lib/ui/Card.svelte'
   import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
   import { homeFirst, isHomed } from '../lib/gcode'
-  import { screwTurn } from '../lib/screws'
+  import { screwPosition, screwTurn, turnFraction, wedgePath } from '../lib/screws'
 
   // Only shown when the config has [screws_tilt_adjust] or [bed_screws].
   const tilt = $derived(session.printer.get('screws_tilt_adjust'))
@@ -23,6 +23,23 @@
   const results = $derived(Object.entries(tilt?.results ?? {})
     .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
     .map(([key, result]) => ({ key, name: screwName('screws_tilt_adjust', key), ...result })))
+
+  // Where each screw sits on the bed, scaled into the square; y flipped so the front is at the bottom.
+  const toolhead = $derived(session.printer.get('toolhead'))
+  const placed = $derived.by(() => {
+    const points = results.map(result => screwPosition(settings?.screws_tilt_adjust?.[result.key]))
+    if (points.some(point => point == null)) return null
+    const xs = points.map(point => point![0])
+    const ys = points.map(point => point![1])
+    const [minX, maxX] = [toolhead?.axis_minimum?.[0] ?? Math.min(...xs), toolhead?.axis_maximum?.[0] ?? Math.max(...xs)]
+    const [minY, maxY] = [toolhead?.axis_minimum?.[1] ?? Math.min(...ys), toolhead?.axis_maximum?.[1] ?? Math.max(...ys)]
+    const scale = (value: number, min: number, max: number) => (max > min ? (value - min) / (max - min) : 0.5)
+    return results.map((result, index) => ({
+      ...result,
+      left: 18 + scale(xs[index], minX, maxX) * 64,
+      top: 82 - scale(ys[index], minY, maxY) * 64
+    }))
+  })
 
   const bedScrewNames = $derived(Object.keys(settings?.bed_screws ?? {})
     .filter(key => /^screw\d+$/.test(key))
@@ -45,28 +62,44 @@
     {#if results.length === 0}
       <p class="muted empty">Measure to see how far to turn each screw.</p>
     {:else}
-      <table>
-        <thead>
-          <tr><th scope="col">Screw</th><th scope="col">Height</th><th scope="col">Turn</th></tr>
-        </thead>
-        <tbody>
-          {#each results as result (result.key)}
-            <tr>
-              <th scope="row">{result.name}</th>
-              <td class="num">{result.z.toFixed(3)}</td>
-              <td class="turn" class:base={result.is_base}>
-                {#if result.is_base}
-                  Reference
-                {:else}
-                  {screwTurn(result.sign, result.adjust) ?? `${result.sign} ${result.adjust}`}
-                  <span class="clock num" title="Klipper's reading, as a clock face">{result.adjust}</span>
-                {/if}
-              </td>
-            </tr>
+      {#snippet dial(result: typeof results[number])}
+        {@const fraction = turnFraction(result.adjust)}
+        {@const clockwise = result.sign.trim().toUpperCase() === 'CW'}
+        <svg class="dial" class:ccw={!clockwise} viewBox="-1.15 -1.15 2.3 2.3" aria-hidden="true">
+          <circle class="face" r="1" />
+          {#if !result.is_base && fraction != null && fraction > 0}
+            <path class="wedge" d={wedgePath(fraction, clockwise)} />
+          {/if}
+          <line class="tick" x1="0" y1="-1" x2="0" y2="-0.7" />
+          {#if result.is_base}<circle class="ref" r="0.28" />{/if}
+        </svg>
+      {/snippet}
+      {#snippet label(result: typeof results[number])}
+        <span class="name">{result.name}</span>
+        <span class="turn" class:base={result.is_base} class:ccw={!result.is_base && result.sign.trim().toUpperCase() !== 'CW'}>
+          {result.is_base ? 'Reference' : (screwTurn(result.sign, result.adjust) ?? `${result.sign} ${result.adjust}`)}
+        </span>
+        <span class="detail num">{result.z.toFixed(3)}{result.is_base ? '' : ` · ${result.adjust}`}</span>
+      {/snippet}
+
+      {#if placed}
+        <div class="bed" role="list" aria-label="Bed seen from above, front at the bottom">
+          <span class="edge">Front</span>
+          {#each placed as result (result.key)}
+            <div class="screw" role="listitem" style:left="{result.left}%" style:top="{result.top}%">
+              {@render dial(result)}
+              {@render label(result)}
+            </div>
           {/each}
-        </tbody>
-      </table>
-      <p class="hint">Turn each screw clockwise (CW) or counter-clockwise (CCW) to match the reference.</p>
+        </div>
+      {:else}
+        <ul class="screws">
+          {#each results as result (result.key)}
+            <li class="screw">{@render dial(result)}{@render label(result)}</li>
+          {/each}
+        </ul>
+      {/if}
+      <p class="hint">The shaded slice is how far to turn each screw, starting from 12 o'clock: clockwise (CW) or counter-clockwise (CCW) to match the reference.</p>
       {#if tilt.error}<p class="error">Probing failed; the results may be incomplete.</p>{/if}
     {/if}
   </Card>
@@ -100,13 +133,30 @@
 
 <style>
   .empty { margin: 0; font-size: var(--text-sm); }
-  table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
-  thead th { padding-bottom: var(--space-2); text-align: left; font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); }
-  tbody th { text-align: left; font-weight: 500; padding: var(--space-2) 0; }
-  tbody tr + tr { border-top: 1px solid var(--border); }
-  .turn { font-weight: 600; }
-  .clock { margin-left: var(--space-2); font-size: var(--text-xs); font-weight: 400; color: var(--text-faint); }
+  .bed {
+    position: relative;
+    aspect-ratio: 1;
+    max-width: 420px;
+    margin: 0 auto;
+    border-radius: var(--radius-md);
+    background: var(--surface-inset);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .edge { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
+  .bed .screw { position: absolute; transform: translate(-50%, -50%); width: 36%; }
+  .screws { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  .screw { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+  .dial { width: 48px; height: 48px; margin-bottom: var(--space-1); --turn: var(--accent); }
+  .dial.ccw { --turn: var(--series-3); }
+  .face { fill: var(--control); stroke: var(--border); stroke-width: 0.06; }
+  .wedge { fill: var(--turn); }
+  .tick { stroke: var(--text-faint); stroke-width: 0.08; stroke-linecap: round; }
+  .ref { fill: var(--text-muted); }
+  .name { font-size: var(--text-xs); color: var(--text-muted); }
+  .turn { font-size: var(--text-sm); font-weight: 600; color: var(--accent); }
+  .turn.ccw { color: var(--series-3); }
   .turn.base { color: var(--text-muted); font-weight: 400; }
+  .detail { font-size: 11px; color: var(--text-faint); }
   .hint { margin: var(--space-3) 0 0; font-size: var(--text-xs); color: var(--text-faint); }
   .error { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--danger); }
   .status { margin: 0; font-size: var(--text-sm); }
