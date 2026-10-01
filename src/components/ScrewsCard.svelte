@@ -5,6 +5,7 @@
   import Card from '../lib/ui/Card.svelte'
   import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
   import { homeFirst, isHomed } from '../lib/gcode'
+  import { screwTurn } from '../lib/screws'
 
   // Only shown when the config has [screws_tilt_adjust] or [bed_screws].
   const tilt = $derived(session.printer.get('screws_tilt_adjust'))
@@ -53,14 +54,19 @@
             <tr>
               <th scope="row">{result.name}</th>
               <td class="num">{result.z.toFixed(3)}</td>
-              <td class="num turn" class:base={result.is_base}>
-                {result.is_base ? 'Reference' : `${result.sign} ${result.adjust}`}
+              <td class="turn" class:base={result.is_base}>
+                {#if result.is_base}
+                  Reference
+                {:else}
+                  {screwTurn(result.sign, result.adjust) ?? `${result.sign} ${result.adjust}`}
+                  <span class="clock num" title="Klipper's reading, as a clock face">{result.adjust}</span>
+                {/if}
               </td>
             </tr>
           {/each}
         </tbody>
       </table>
-      <p class="hint">Turns are clockwise (CW) or counter-clockwise (CCW), in hours:minutes of a clock face.</p>
+      <p class="hint">Turn each screw clockwise (CW) or counter-clockwise (CCW) to match the reference.</p>
       {#if tilt.error}<p class="error">Probing failed; the results may be incomplete.</p>{/if}
     {/if}
   </Card>
@@ -99,6 +105,7 @@
   tbody th { text-align: left; font-weight: 500; padding: var(--space-2) 0; }
   tbody tr + tr { border-top: 1px solid var(--border); }
   .turn { font-weight: 600; }
+  .clock { margin-left: var(--space-2); font-size: var(--text-xs); font-weight: 400; color: var(--text-faint); }
   .turn.base { color: var(--text-muted); font-weight: 400; }
   .hint { margin: var(--space-3) 0 0; font-size: var(--text-xs); color: var(--text-faint); }
   .error { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--danger); }
