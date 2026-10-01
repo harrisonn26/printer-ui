@@ -308,8 +308,11 @@
         aria-label="Layer"
         oninput={onScrub}
       />
-      {#if manualLayer != null && job.active}
-        <Button size="sm" variant="secondary" onclick={() => { manualLayer = null }}>Live</Button>
+      {#if job.active}
+        <!-- Always laid out, so the slider doesn't shrink under the pointer when it appears. -->
+        <span class="live" class:hidden={manualLayer == null} inert={manualLayer == null}>
+          <Button size="sm" variant="secondary" onclick={() => { manualLayer = null }}>Live</Button>
+        </span>
       {/if}
     </div>
   {/if}
@@ -345,7 +348,8 @@
     gap: var(--space-2);
     width: min(280px, 45%);
   }
-  input[type='range'] { flex: 1; accent-color: var(--accent); }
+  input[type='range'] { flex: 1; min-width: 0; accent-color: var(--accent); }
+  .live.hidden { visibility: hidden; }
 
   @media (max-width: 760px) {
     .label { left: var(--space-3); top: var(--space-3); }
