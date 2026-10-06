@@ -1,10 +1,13 @@
 <script lang="ts">
+  import { confirmAction } from '../confirm.svelte'
   import Button from './Button.svelte'
 
   interface Props {
     label: string
-    /** Shown after the first click; a second click within the window runs it. */
+    /** Heading and confirm-button text of the modal. */
     confirmLabel: string
+    /** Optional explanation shown in the modal body. */
+    message?: string
     onconfirm: () => Promise<unknown> | unknown
     variant?: 'secondary' | 'ghost' | 'outline' | 'danger'
     confirmVariant?: 'primary' | 'danger'
@@ -17,6 +20,7 @@
   let {
     label,
     confirmLabel,
+    message,
     onconfirm,
     variant = 'secondary',
     confirmVariant = 'primary',
@@ -26,22 +30,17 @@
     title
   }: Props = $props()
 
-  const CONFIRM_MS = 4000
-
-  let confirming = $state(false)
   let loading = $state(false)
-  let timer: ReturnType<typeof setTimeout> | undefined
-
-  $effect(() => () => clearTimeout(timer))
 
   const click = async () => {
-    if (!confirming) {
-      confirming = true
-      timer = setTimeout(() => { confirming = false }, CONFIRM_MS)
-      return
-    }
-    clearTimeout(timer)
-    confirming = false
+    if (disabled || loading) return
+    const confirmed = await confirmAction({
+      title: confirmLabel,
+      body: message,
+      confirmLabel,
+      danger: confirmVariant === 'danger'
+    })
+    if (!confirmed) return
     loading = true
     try {
       await onconfirm()
@@ -52,11 +51,11 @@
 </script>
 
 <Button
-  variant={confirming ? confirmVariant : variant}
+  {variant}
   {size}
-  icon={confirming ? undefined : icon}
+  {icon}
   {loading}
   {disabled}
   {title}
   onclick={click}
->{confirming ? confirmLabel : label}</Button>
+>{label}</Button>

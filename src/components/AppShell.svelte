@@ -14,6 +14,7 @@
   import KlippyBanner from './KlippyBanner.svelte'
   import ManualProbePanel from './ManualProbePanel.svelte'
   import QuickConsole from './QuickConsole.svelte'
+  import ConfirmDialog from '../lib/ui/ConfirmDialog.svelte'
 
   let { children }: { children: Snippet } = $props()
 
@@ -106,6 +107,7 @@
     {/if}
     <ManualProbePanel />
     <QuickConsole />
+    <ConfirmDialog />
     {#if !session.klippyReady}
       <div class="global-banner"><KlippyBanner /></div>
     {/if}
