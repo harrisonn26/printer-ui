@@ -11,7 +11,9 @@
   import { machineState, tabTitle } from '../lib/machine'
   import { printers, printerLabel } from '../lib/printers.svelte'
   import PrinterSwitcher from './PrinterSwitcher.svelte'
+  import KlippyBanner from './KlippyBanner.svelte'
   import ManualProbePanel from './ManualProbePanel.svelte'
+  import QuickConsole from './QuickConsole.svelte'
 
   let { children }: { children: Snippet } = $props()
 
@@ -48,11 +50,17 @@
     if (result !== undefined) toasts.push('Emergency stop sent', 'warning')
   }
 
-  // Ctrl/⌘+Shift+X from anywhere, including while typing in a field.
+  // Ctrl/⌘+Shift+X (emergency stop) and Ctrl/⌘+Shift+C (full console)
+  // from anywhere, including while typing in a field.
   const onKeydown = (event: KeyboardEvent) => {
-    if (event.code !== 'KeyX' || !event.shiftKey || !(event.ctrlKey || event.metaKey) || event.altKey) return
-    event.preventDefault()
-    if (!event.repeat) void emergencyStop()
+    if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey || event.repeat) return
+    if (event.code === 'KeyX') {
+      event.preventDefault()
+      void emergencyStop()
+    } else if (event.code === 'KeyC') {
+      event.preventDefault()
+      router.go('/console')
+    }
   }
 </script>
 
@@ -97,6 +105,10 @@
       </div>
     {/if}
     <ManualProbePanel />
+    <QuickConsole />
+    {#if !session.klippyReady}
+      <div class="global-banner"><KlippyBanner /></div>
+    {/if}
     {@render children()}
   </main>
 
@@ -160,6 +172,7 @@
     font-size: var(--text-sm);
   }
   .power-alert strong { color: var(--warning); }
+  .global-banner { margin-bottom: var(--space-4); }
   main {
     flex: 1;
     width: 100%;

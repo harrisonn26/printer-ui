@@ -4,8 +4,6 @@
   import HistoryList from '../components/HistoryList.svelte'
   import Icon from '../lib/ui/Icon.svelte'
   import Segmented from '../lib/ui/Segmented.svelte'
-    import { session } from '../lib/moonraker/session.svelte';
-    import KlippyBanner from '../components/KlippyBanner.svelte';
 
   const TABS = [
     { value: 'files', label: 'Files' },
@@ -15,10 +13,6 @@
   let tab = $state<'files' | 'history'>('files')
   let query = $state('')
 </script>
-
-{#if !session.klippyReady}
-  <div class="banner"><KlippyBanner /></div>
-{/if}
 
 <section class="jobs">
   <header>
@@ -39,7 +33,6 @@
 </section>
 
 <style>
-  .banner { margin-bottom: var(--space-4); }
   .jobs {
     max-width: 960px;
     margin: 0 auto;

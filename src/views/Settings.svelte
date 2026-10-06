@@ -6,7 +6,6 @@
   import MachineCard from '../components/MachineCard.svelte'
   import PresetsEditor from '../components/PresetsEditor.svelte'
   import PrintersCard from '../components/PrintersCard.svelte'
-    import KlippyBanner from '../components/KlippyBanner.svelte';
 
   const THEMES: { value: ThemeChoice, label: string }[] = [
     { value: 'system', label: 'System' },
@@ -14,10 +13,6 @@
     { value: 'light', label: 'Light' }
   ]
 </script>
-
-{#if !session.klippyReady}
-  <div class="banner"><KlippyBanner /></div>
-{/if}
 
 <div class="settings">
   <PrintersCard />
@@ -53,7 +48,6 @@
 </div>
 
 <style>
-  .banner { margin-bottom: var(--space-4); }
   .settings { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-4); }
   .segmented {
     display: inline-flex;

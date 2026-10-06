@@ -60,6 +60,7 @@
   }
 </script>
 
+{#if klippyState !== 'ready'}
 <div class="banner" class:info={klippyState === 'startup' || klippyState === 'unknown'} role="alert">
   <Icon path={mdiAlertCircleOutline} size={22} />
   <div class="text">
@@ -96,6 +97,7 @@
     {/if}
   </div>
 </div>
+{/if}
 
 <style>
   .banner {
