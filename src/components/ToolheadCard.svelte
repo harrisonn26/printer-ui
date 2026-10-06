@@ -7,6 +7,8 @@
   import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
   import InlineNumber from '../lib/ui/InlineNumber.svelte'
   import Segmented from '../lib/ui/Segmented.svelte'
+    import SplitButton from '../lib/ui/SplitButton.svelte';
+    import { mdiUpload } from '@mdi/js';
 
   // mm/s, Fluidd's defaults.
   const XY_SPEED = 130
@@ -87,12 +89,24 @@
         onclick={() => jog(axis, sign)}
       >{axis}{sign > 0 ? '+' : '−'}</Button>
     {/each}
-    <Button
+    <SplitButton
+      class="home"
+      options={[
+        { value: 'G28 X', label: 'Home X' },
+        { value: 'G28 Y', label: 'Home Y' },
+        { value: 'G28 Z', label: 'Home Z' },
+      ]}
+      disabled={!canMove}
+      loading={pending === 'home'}
+      onclick={() => send('home', 'G28')}
+      onselect={(opt) => send('home', opt.value)}
+    >Home all</SplitButton>
+    <!-- <Button
       class="home"
       disabled={!canMove}
       loading={pending === 'home'}
       onclick={() => send('home', 'G28')}
-    >Home all</Button>
+    >Home all</Button> -->
   </div>
 
   <div class="row">

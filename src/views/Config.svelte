@@ -14,6 +14,7 @@
   import Button from '../lib/ui/Button.svelte'
   import CodeEditor from '../components/CodeEditor.svelte'
   import ConfigBackups from '../components/ConfigBackups.svelte'
+    import KlippyBanner from '../components/KlippyBanner.svelte';
 
   const RESTART_TIMEOUT_MS = 45_000
 
@@ -184,6 +185,10 @@
   const canRestart = $derived(session.ready && (target === 'moonraker' || !job.active))
 </script>
 
+{#if !session.klippyReady}
+  <div class="klippy-banner"><KlippyBanner /></div>
+{/if}
+
 <section class="config">
   <aside class="files">
     <h1>Config</h1>
@@ -272,6 +277,7 @@
 </section>
 
 <style>
+  .klippy-banner { margin-bottom: var(--space-4); }
   .config {
     display: grid;
     grid-template-columns: 240px minmax(0, 1fr);

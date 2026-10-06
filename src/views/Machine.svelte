@@ -2,12 +2,18 @@
   import BedMeshCard from '../components/BedMeshCard.svelte'
   import ConfigNoticesCard from '../components/ConfigNoticesCard.svelte'
   import HostCard from '../components/HostCard.svelte'
+    import KlippyBanner from '../components/KlippyBanner.svelte';
   import ProbeCard from '../components/ProbeCard.svelte'
   import ScrewsCard from '../components/ScrewsCard.svelte'
   import ServicesCard from '../components/ServicesCard.svelte'
   import TuningCard from '../components/TuningCard.svelte'
   import UpdatesCard from '../components/UpdatesCard.svelte'
+    import { session } from '../lib/moonraker/session.svelte';
 </script>
+
+{#if !session.klippyReady}
+  <div class="banner"><KlippyBanner /></div>
+{/if}
 
 <div class="machine">
   <div class="notices"><ConfigNoticesCard /></div>
@@ -25,6 +31,7 @@
 </div>
 
 <style>
+  .banner { margin-bottom: var(--space-4); }
   .machine {
     max-width: 1200px;
     margin: 0 auto;

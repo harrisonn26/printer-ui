@@ -5,6 +5,7 @@
   import { commandSuggestions } from '../lib/gcode'
   import { normalizeScript } from '../lib/moonraker/console.svelte'
   import Button from '../lib/ui/Button.svelte'
+    import KlippyBanner from '../components/KlippyBanner.svelte';
 
   const MAX_ROWS = 8
 
@@ -130,6 +131,10 @@
   }
 </script>
 
+{#if !session.klippyReady}
+  <div class="banner"><KlippyBanner /></div>
+{/if}
+
 <section class="console">
   <header>
     <h1>Console</h1>
@@ -188,6 +193,7 @@
 </section>
 
 <style>
+  .banner { margin-bottom: var(--space-4); }
   .console {
     position: relative;
     display: flex;
