@@ -9,6 +9,7 @@ import {
   velocityLimitCommand,
   zOffsetApplyCommand,
   commandSuggestions,
+  paramSuggestions,
   homeFirst,
   isHomed,
   probeCalibrateScript,
@@ -168,6 +169,32 @@ describe('commandSuggestions', () => {
 
   it('returns nothing for empty input', () => {
     expect(commandSuggestions(help, '  ')).toEqual([])
+  })
+})
+
+describe('paramSuggestions', () => {
+  const known = [
+    { name: 'X', description: 'X position (mm)' },
+    { name: 'Y', description: 'Y position (mm)' },
+    { name: 'F', description: 'Feedrate (mm/min)' },
+    { name: 'TEMP', description: 'Temperature', defaultValue: '220' }
+  ]
+
+  it('lists all params on an empty token', () => {
+    expect(paramSuggestions(known, '').map(p => p.name)).toEqual(['X', 'Y', 'F', 'TEMP'])
+  })
+
+  it('filters by the token being typed', () => {
+    expect(paramSuggestions(known, 'T').map(p => p.name)).toEqual(['TEMP'])
+  })
+
+  it('hides params already given a value', () => {
+    expect(paramSuggestions(known, 'X10 F').map(p => p.name)).toEqual(['F'])
+    expect(paramSuggestions(known, 'X=10 Y=5 ').map(p => p.name)).toEqual(['F', 'TEMP'])
+  })
+
+  it('returns nothing without known params', () => {
+    expect(paramSuggestions([], 'X')).toEqual([])
   })
 })
 

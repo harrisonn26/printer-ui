@@ -173,6 +173,316 @@ export const macroCommand = (name: string, values: Record<string, string> = {}):
   return [name.toUpperCase(), ...params].join(' ')
 }
 
+/**
+ * Bare G/M codes Klipper's `printer.gcode.help` doesn't describe: fallback
+ * docs so typing "G" still suggests G0/G1/G28… with a description.
+ * Merge under live help: `{ ...GCODE_FALLBACK, ...help }`.
+ */
+export const GCODE_FALLBACK: Record<string, string> = {
+  G0: 'Rapid linear move.',
+  G1: 'Linear move.',
+  G28: 'Home axes (no args = home all).',
+  G90: 'Absolute positioning.',
+  G91: 'Relative positioning.',
+  G92: 'Set current position.',
+  M104: 'Set extruder temperature (no wait).',
+  M109: 'Set extruder temperature and wait.',
+  M140: 'Set bed temperature (no wait).',
+  M190: 'Set bed temperature and wait.',
+  M220: 'Set speed factor.',
+  M221: 'Set flow factor.',
+  M84: 'Disable steppers (no args = all).',
+  M106: 'Set fan speed.',
+  M107: 'Turn fan off.',
+  G4: 'Dwell (pause). P in milliseconds, S in seconds.',
+  BED_MESH_CALIBRATE: 'Perform mesh bed leveling.',
+  BED_MESH_PROFILE: 'Bed mesh persistent storage management.',
+  BED_MESH_OUTPUT: 'Retrieve interpolated grid of probed z-points.',
+  BED_MESH_CLEAR: 'Clear the mesh so no z-adjustment is made.',
+  BED_MESH_OFFSET: 'Add X/Y offsets to the mesh lookup.',
+  PROBE: 'Probe Z-height at current XY position.',
+  QUERY_PROBE: 'Return the status of the z-probe.',
+  PROBE_CALIBRATE: "Calibrate the probe's z_offset.",
+  PROBE_ACCURACY: 'Probe Z-height accuracy at current XY position.',
+  Z_ENDSTOP_CALIBRATE: 'Calibrate the Z endstop position.',
+  Z_TILT_ADJUST: 'Adjust for Z tilt.',
+  QUAD_GANTRY_LEVEL: 'Level the gantry.',
+  SCREWS_TILT_CALCULATE: 'Calculate bed screw adjustments.',
+  BED_SCREWS_ADJUST: 'Guide bed screw adjustment.',
+  STEPPER_BUZZ: 'Oscillate a given stepper to help identify it.',
+  FORCE_MOVE: 'Manually move a stepper; invalidates kinematics.',
+  SET_KINEMATIC_POSITION: 'Force a low-level kinematic position.',
+  SET_STEPPER_ENABLE: 'Enable/disable individual stepper by name.',
+  SET_TMC_FIELD: 'Set a register field of a TMC driver.',
+  INIT_TMC: 'Initialize TMC stepper driver registers.',
+  DUMP_TMC: 'Read and display TMC stepper driver registers.',
+  SET_RETRACTION: 'Set firmware retraction parameters.',
+  TUNING_TOWER: 'Tool to adjust a parameter at each Z height.',
+  SET_PAUSE_NEXT_LAYER: 'Enable/disable pause at the next layer.',
+  SET_PAUSE_AT_LAYER: 'Enable/disable pause at a given layer.',
+  UPDATE_DELAYED_GCODE: 'Update the duration of a delayed_gcode.',
+  RESPOND: 'Echo a message to the console.',
+  SET_SERVO: 'Set servo angle or pulse width.',
+  ACTIVATE_EXTRUDER: 'Change the active extruder.',
+  SYNC_EXTRUDER_MOTION: 'Set extruder stepper motion queue.',
+  SET_EXTRUDER_ROTATION_DISTANCE: 'Set extruder rotation distance.',
+  SYNC_STEPPER_TO_EXTRUDER: 'Bind a stepper to an extruder.',
+  QUERY_FILAMENT_SENSOR: 'Query the status of the filament sensor.',
+  SET_FILAMENT_SENSOR: 'Set the filament sensor on/off.',
+  GET_POSITION: 'Return the current location of the toolhead.',
+  GET_CURRENT_SKEW: 'Report current printer skew.',
+  CALC_MEASURED_SKEW: 'Calculate skew from measured print.',
+  SKEW_PROFILE: 'Profile management for skew_correction.',
+  M300: 'Play a beep. S in Hz, P in milliseconds.',
+  M400: 'Wait for all moves to finish.',
+  M82: 'Absolute extrusion mode.',
+  M83: 'Relative extrusion mode.',
+  TURN_OFF_HEATERS: 'Turn off all heaters.',
+  SET_DISPLAY_GROUP: 'Set the active display group.',
+  SDCARD_PRINT_FILE: 'Load an SD file and start the print.',
+  SDCARD_RESET_FILE: 'Clear the loaded SD file.',
+  CLEAR_PAUSE: 'Clear the paused state without resuming.',
+  BLTOUCH_DEBUG: 'BLTouch debug commands.',
+  SET_HEATER_TEMPERATURE: 'Sets a heater temperature.',
+  PID_CALIBRATE: 'Run PID calibration test.',
+  SET_PRESSURE_ADVANCE: 'Set pressure advance parameters.',
+  SET_VELOCITY_LIMIT: 'Set printer velocity limits.',
+  SET_GCODE_OFFSET: 'Set a virtual offset to g-code positions.',
+  SET_SKEW: 'Set skew based on lengths of measured object.',
+  SET_PIN: 'Set the value of an output pin.',
+  QUERY_ADC: 'Report the last value of an analog pin.',
+  SET_TMC_CURRENT: 'Set the current of a TMC driver.',
+  TEMPERATURE_WAIT: 'Wait for a temperature on a sensor.',
+  SET_IDLE_TIMEOUT: 'Set the idle timeout in seconds.',
+  SAVE_GCODE_STATE: 'Save G-Code coordinate state.',
+  RESTORE_GCODE_STATE: 'Restore a previously saved G-Code state.',
+  SET_GCODE_VARIABLE: 'Set the value of a G-Code macro variable.',
+  EXCLUDE_OBJECT: 'Cancel moves inside a specified object.',
+  EXCLUDE_OBJECT_DEFINE: 'Provides a summary of an object.',
+  SET_DISPLAY_TEXT: 'Set or clear the display message.',
+  QUERY_ENDSTOPS: 'Report on the status of each endstop.'
+}
+
+/** Known args for bare G/M codes. Rendered as chips, not stuffed into the description. */
+export const GCODE_PARAMS: Record<string, string[]> = {
+  G0: ['X', 'Y', 'Z', 'E', 'F'],
+  G1: ['X', 'Y', 'Z', 'E', 'F'],
+  G28: ['X', 'Y', 'Z'],
+  G92: ['X', 'Y', 'Z', 'E'],
+  M104: ['S', 'T'],
+  M109: ['S', 'T'],
+  M140: ['S'],
+  M190: ['S'],
+  M220: ['S'],
+  M221: ['S'],
+  M84: ['X', 'Y', 'Z', 'E'],
+  M106: ['S'],
+  G4: ['P', 'S'],
+  M300: ['S', 'P']
+}
+
+/**
+ * Curated params for extended commands Klipper exposes no arg schema for.
+ * Add entries here as needed — stage-2 completion reads this table.
+ */
+export const KNOWN_COMMAND_PARAMS: Record<string, ParamSuggestion[]> = {
+  BLTOUCH_DEBUG: [
+    { name: 'COMMAND', description: 'pin_up, pin_down, self_test, reset, touch_mode…' }
+  ],
+  SET_HEATER_TEMPERATURE: [
+    { name: 'HEATER', description: 'Heater name (extruder, heater_bed, …)' },
+    { name: 'TARGET', description: 'Target temperature (°C)' }
+  ],
+  PID_CALIBRATE: [
+    { name: 'HEATER', description: 'Heater name (extruder, heater_bed)' },
+    { name: 'TARGET', description: 'Target temperature (°C)' }
+  ],
+  SET_PRESSURE_ADVANCE: [
+    { name: 'EXTRUDER', description: 'Extruder name' },
+    { name: 'ADVANCE', description: 'Advance factor' },
+    { name: 'SMOOTH_TIME', description: 'Smoothing time (s)' }
+  ],
+  SET_VELOCITY_LIMIT: [
+    { name: 'VELOCITY', description: 'Max velocity (mm/s)' },
+    { name: 'ACCEL', description: 'Max acceleration (mm/s²)' },
+    { name: 'SQUARE_CORNER_VELOCITY', description: 'Square corner velocity (mm/s)' },
+    { name: 'MINIMUM_CRUISE_RATIO', description: 'Minimum cruise ratio (0–1)' }
+  ],
+  SET_GCODE_OFFSET: [
+    { name: 'X', description: 'X offset (mm)' },
+    { name: 'Y', description: 'Y offset (mm)' },
+    { name: 'Z', description: 'Z offset (mm)' },
+    { name: 'MOVE', description: '1 to move the toolhead, 0 to stay' }
+  ],
+  SET_SKEW: [
+    { name: 'XY', description: 'Measured XY skew' },
+    { name: 'XZ', description: 'Measured XZ skew' },
+    { name: 'YZ', description: 'Measured YZ skew' }
+  ],
+  SET_PIN: [
+    { name: 'PIN', description: 'Pin name' },
+    { name: 'VALUE', description: 'Value (0–1, or 0–255 for PWM)' }
+  ],
+  QUERY_ADC: [
+    { name: 'NAME', description: 'ADC name' }
+  ],
+  SET_TMC_CURRENT: [
+    { name: 'STEPPER', description: 'Stepper name' },
+    { name: 'CURRENT', description: 'Run current (A)' },
+    { name: 'HOLDCURRENT', description: 'Hold current (A)' }
+  ],
+  TEMPERATURE_WAIT: [
+    { name: 'SENSOR', description: 'Sensor name' },
+    { name: 'MINIMUM', description: 'Minimum temperature (°C)' },
+    { name: 'MAXIMUM', description: 'Maximum temperature (°C)' }
+  ],
+  SET_IDLE_TIMEOUT: [
+    { name: 'TIMEOUT', description: 'Idle timeout (s)' }
+  ],
+  SAVE_GCODE_STATE: [
+    { name: 'NAME', description: 'State name to save under' }
+  ],
+  RESTORE_GCODE_STATE: [
+    { name: 'NAME', description: 'State name to restore' },
+    { name: 'MOVE', description: '1 to move, 0 to stay' }
+  ],
+  SET_GCODE_VARIABLE: [
+    { name: 'MACRO', description: 'Macro name' },
+    { name: 'VARIABLE', description: 'Variable name' },
+    { name: 'VALUE', description: 'New value' }
+  ],
+  EXCLUDE_OBJECT: [
+    { name: 'NAME', description: 'Object name to exclude' }
+  ],
+  EXCLUDE_OBJECT_DEFINE: [
+    { name: 'NAME', description: 'Object name' }
+  ],
+  SET_DISPLAY_TEXT: [
+    { name: 'MSG', description: 'Message (empty clears the display)' }
+  ],
+  BED_MESH_CALIBRATE: [
+    { name: 'METHOD', description: 'scan, rapid_scan or automatic' },
+    { name: 'PROFILE', description: 'Profile name to save to' }
+  ],
+  BED_MESH_PROFILE: [
+    { name: 'LOAD', description: 'Profile name to load' },
+    { name: 'SAVE', description: 'Profile name to save' },
+    { name: 'REMOVE', description: 'Profile name to delete' }
+  ],
+  BED_MESH_OFFSET: [
+    { name: 'X', description: 'X offset (mm)' },
+    { name: 'Y', description: 'Y offset (mm)' }
+  ],
+  PROBE: [
+    { name: 'SAMPLES', description: 'Number of samples' },
+    { name: 'SAMPLE_RETRACT_DIST', description: 'Retract distance between samples (mm)' }
+  ],
+  PROBE_ACCURACY: [
+    { name: 'SAMPLES', description: 'Number of samples' }
+  ],
+  STEPPER_BUZZ: [
+    { name: 'STEPPER', description: 'Stepper name (e.g. stepper_x)' }
+  ],
+  FORCE_MOVE: [
+    { name: 'STEPPER', description: 'Stepper name' },
+    { name: 'DISTANCE', description: 'Move distance (mm)' },
+    { name: 'VELOCITY', description: 'Velocity (mm/s)' },
+    { name: 'ACCEL', description: 'Acceleration (mm/s²)' }
+  ],
+  SET_KINEMATIC_POSITION: [
+    { name: 'X', description: 'X position (mm)' },
+    { name: 'Y', description: 'Y position (mm)' },
+    { name: 'Z', description: 'Z position (mm)' }
+  ],
+  SET_STEPPER_ENABLE: [
+    { name: 'STEPPER', description: 'Stepper name' },
+    { name: 'ENABLE', description: '1 to enable, 0 to disable' }
+  ],
+  SET_TMC_FIELD: [
+    { name: 'STEPPER', description: 'Stepper name' },
+    { name: 'FIELD', description: 'Register field name' },
+    { name: 'VALUE', description: 'Value to set' }
+  ],
+  INIT_TMC: [
+    { name: 'STEPPER', description: 'Stepper name (none = all)' }
+  ],
+  DUMP_TMC: [
+    { name: 'STEPPER', description: 'Stepper name' }
+  ],
+  SET_RETRACTION: [
+    { name: 'RETRACT_LENGTH', description: 'Retract length (mm)' },
+    { name: 'RETRACT_SPEED', description: 'Retract speed (mm/s)' },
+    { name: 'UNRETRACT_EXTRA_LENGTH', description: 'Extra length on unretract (mm)' },
+    { name: 'UNRETRACT_SPEED', description: 'Unretract speed (mm/s)' }
+  ],
+  TUNING_TOWER: [
+    { name: 'COMMAND', description: 'Command to adjust each layer' },
+    { name: 'PARAMETER', description: 'Parameter name to adjust' },
+    { name: 'START', description: 'Starting value' },
+    { name: 'STEP_DELTA', description: 'Change per step' },
+    { name: 'STEP_HEIGHT', description: 'Height per step (mm)' }
+  ],
+  SET_PAUSE_NEXT_LAYER: [
+    { name: 'ENABLE', description: '1 to enable, 0 to disable' }
+  ],
+  SET_PAUSE_AT_LAYER: [
+    { name: 'ENABLE', description: '1 to enable, 0 to disable' },
+    { name: 'LAYER', description: 'Layer number' }
+  ],
+  UPDATE_DELAYED_GCODE: [
+    { name: 'ID', description: 'Delayed-gcode ID' },
+    { name: 'DURATION', description: 'Delay in seconds' }
+  ],
+  RESPOND: [
+    { name: 'MSG', description: 'Message text' },
+    { name: 'PREFIX', description: 'Message prefix' },
+    { name: 'TYPE', description: 'echo, error or command' }
+  ],
+  SET_SERVO: [
+    { name: 'SERVO', description: 'Servo name' },
+    { name: 'ANGLE', description: 'Angle (degrees)' },
+    { name: 'WIDTH', description: 'Pulse width (s)' }
+  ],
+  ACTIVATE_EXTRUDER: [
+    { name: 'EXTRUDER', description: 'Extruder name' }
+  ],
+  SYNC_EXTRUDER_MOTION: [
+    { name: 'EXTRUDER', description: 'Extruder stepper name' },
+    { name: 'MOTION_QUEUE', description: 'Motion queue to sync to (empty to unsync)' }
+  ],
+  SET_EXTRUDER_ROTATION_DISTANCE: [
+    { name: 'EXTRUDER', description: 'Extruder name' },
+    { name: 'DISTANCE', description: 'Rotation distance (mm)' }
+  ],
+  SYNC_STEPPER_TO_EXTRUDER: [
+    { name: 'STEPPER', description: 'Stepper name' },
+    { name: 'EXTRUDER', description: 'Extruder name (empty to unsync)' }
+  ],
+  QUERY_FILAMENT_SENSOR: [
+    { name: 'SENSOR', description: 'Sensor name' }
+  ],
+  SET_FILAMENT_SENSOR: [
+    { name: 'SENSOR', description: 'Sensor name' },
+    { name: 'ENABLE', description: '1 to enable, 0 to disable' }
+  ],
+  CALC_MEASURED_SKEW: [
+    { name: 'AC', description: 'Measured AC length (mm)' },
+    { name: 'BD', description: 'Measured BD length (mm)' },
+    { name: 'AD', description: 'Measured AD length (mm)' }
+  ],
+  SKEW_PROFILE: [
+    { name: 'LOAD', description: 'Profile name to load' },
+    { name: 'SAVE', description: 'Profile name to save' },
+    { name: 'REMOVE', description: 'Profile name to delete' }
+  ],
+  SET_DISPLAY_GROUP: [
+    { name: 'GROUP', description: 'Display group (empty clears)' }
+  ],
+  SDCARD_PRINT_FILE: [
+    { name: 'FILENAME', description: 'File path on the SD card' }
+  ]
+}
+
 export interface CommandSuggestion {
   command: string
   description: string
@@ -197,6 +507,45 @@ export const commandSuggestions = (
     .sort(([a], [b]) => a.length - b.length || a.localeCompare(b))
     .slice(0, limit)
     .map(([command, description]) => ({ command: command.toUpperCase(), description }))
+}
+
+/**
+ * Params a command takes, after its name is complete and a space follows.
+ * `after` is everything past the command's trailing space; already-used
+ * `NAME=` params are excluded so each suggests once.
+ */
+export interface ParamSuggestion {
+  name: string
+  description: string
+  defaultValue?: string
+}
+
+/** Generic one-liners for single-letter args. Macro-specific defaults attach where known. */
+export const ARG_DESCRIPTIONS: Record<string, string> = {
+  X: 'X position (mm)',
+  Y: 'Y position (mm)',
+  Z: 'Z position (mm)',
+  E: 'Extrude length (mm)',
+  F: 'Feedrate (mm/min)',
+  S: 'Target value',
+  T: 'Tool index',
+  P: 'Parameter value or time (ms)'
+}
+
+export const paramSuggestions = (
+  known: ParamSuggestion[],
+  after: string,
+  limit = 6
+): ParamSuggestion[] => {
+  if (known.length === 0) return []
+  const used = new Set(
+    [...after.matchAll(/(?:^|\s)([A-Za-z_][A-Za-z0-9_]*)=/g)].map(match => (match[1] ?? '').toUpperCase())
+  )
+  const token = (after.split(/\s+/).pop() ?? '').toUpperCase()
+  return known
+    .filter(param => !used.has(param.name.toUpperCase()))
+    .filter(param => !token || param.name.toUpperCase().startsWith(token))
+    .slice(0, limit)
 }
 
 /** Fluidd/Mainsail client macros: pause when the slicer reports reaching `layer`. */

@@ -2,7 +2,7 @@
   import { tick } from 'svelte'
   import { session } from '../lib/moonraker/session.svelte'
   import { normalizeScript } from '../lib/moonraker/console.svelte'
-  import { commandSuggestions } from '../lib/gcode'
+  import { commandSuggestions, GCODE_FALLBACK, GCODE_PARAMS, KNOWN_COMMAND_PARAMS, ARG_DESCRIPTIONS, macroParams, paramSuggestions } from '../lib/gcode'
   import { router } from '../lib/router.svelte'
 
   let open = $state(false)
@@ -18,7 +18,36 @@
 
   const history = $derived(session.console.history)
   const recent = $derived(session.console.entries.slice(-8).reverse())
-  const suggestions = $derived(suggesting ? commandSuggestions(help, command) : [])
+  const fullHelp = $derived({ ...GCODE_FALLBACK, ...help })
+  const head = $derived((/^\s*(\S+)/.exec(command)?.[1] ?? '').toUpperCase())
+  const afterHead = $derived(command.replace(/^\s*\S+\s?/, ''))
+
+  const knownParams = $derived.by(() => {
+    if (!head || !/\s/.test(command)) return []
+    if (GCODE_PARAMS[head]) {
+      return (GCODE_PARAMS[head] ?? []).map(name => ({
+        name,
+        description: ARG_DESCRIPTIONS[name] ?? 'Parameter'
+      }))
+    }
+    const known = KNOWN_COMMAND_PARAMS[head]
+    if (known) return known
+    // Macro params come from the printer config.
+    const settings = session.printer.get('configfile')?.settings
+    const config = settings?.[`gcode_macro ${head.toLowerCase()}`]
+    const template = typeof config?.gcode === 'string' ? config.gcode : ''
+    const params = macroParams(template)
+    if (params.length === 0) return []
+    return params.map(param => ({
+      name: param.name,
+      description: param.defaultValue ? `Default ${param.defaultValue}` : 'Macro parameter',
+      defaultValue: param.defaultValue || undefined
+    }))
+  })
+
+  const suggestions = $derived(suggesting && !/\s/.test(command) ? commandSuggestions(fullHelp, command) : [])
+  const paramItems = $derived(suggesting && /\s/.test(command) ? paramSuggestions(knownParams, afterHead) : [])
+  const popupCount = $derived(suggestions.length + paramItems.length)
 
   $effect(() => {
     void command
@@ -49,12 +78,23 @@
     if (previousFocus instanceof HTMLElement) previousFocus.focus()
   }
 
+  const completeParam = (name: string) => {
+    command = command.replace(/\S*$/, `${name}=`)
+    suggesting = true
+    input?.focus()
+  }
+
   const send = async () => {
     const pick = suggestions[selected] ?? suggestions[0]
     // Tab-completion style: if a suggestion is highlighted, take it first.
     if (suggesting && pick && command.trim() && !command.includes(' ')) {
       command = `${pick.command} `
-      suggesting = false
+      suggesting = true
+      return
+    }
+    const paramPick = paramItems[selected] ?? paramItems[0]
+    if (suggesting && paramPick && /\s/.test(command)) {
+      completeParam(paramPick.name)
       return
     }
     const script = normalizeScript(command)
@@ -81,20 +121,25 @@
       else hide()
       return
     }
-    if (suggestions.length > 0) {
-      if (event.key === 'Tab') {
-        event.preventDefault()
+    if (popupCount > 0 && (event.key === 'Tab' || event.key === 'Enter')) {
+      event.preventDefault()
+      if (paramItems.length > 0) {
+        const pick = paramItems[selected] ?? paramItems[0]
+        if (pick) completeParam(pick.name)
+      } else {
         const pick = suggestions[selected] ?? suggestions[0]
         if (pick) {
           command = `${pick.command} `
-          suggesting = false
+          suggesting = true
         }
-        return
       }
+      return
+    }
+    if (popupCount > 0) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault()
         const step = event.key === 'ArrowDown' ? 1 : -1
-        selected = (selected + step + suggestions.length) % suggestions.length
+        selected = (selected + step + popupCount) % popupCount
         return
       }
     }
@@ -141,7 +186,7 @@
         spellcheck="false"
       />
     </form>
-    {#if suggestions.length > 0}
+    {#if popupCount > 0}
       <ul class="suggestions" role="listbox">
         {#each suggestions as item, i (item.command)}
           <li>
@@ -152,13 +197,31 @@
               class:active={i === selected}
               onclick={() => {
                 command = `${item.command} `
-                suggesting = false
+                suggesting = true
                 input?.focus()
               }}
               onmousemove={() => { selected = i }}
             >
               <span class="mono">{item.command}</span>
+              {#if GCODE_PARAMS[item.command]}
+                <span class="args">{#each GCODE_PARAMS[item.command] ?? [] as arg (arg)}<span class="arg mono">{arg}</span>{/each}</span>
+              {/if}
               <span class="desc">{item.description}</span>
+            </button>
+          </li>
+        {/each}
+        {#each paramItems as param, i (param.name)}
+          <li>
+            <button
+              type="button"
+              role="option"
+              aria-selected={i === selected}
+              class:active={i === selected}
+              onclick={() => completeParam(param.name)}
+              onmousemove={() => { selected = i }}
+            >
+              <span class="mono">{param.name}=</span>
+              <span class="desc">{param.description}{#if param.defaultValue} · default {param.defaultValue}{/if}</span>
             </button>
           </li>
         {/each}
@@ -231,7 +294,9 @@
     cursor: pointer;
   }
   .suggestions button.active { background: var(--control); }
-  .desc { overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
+  .args { display: inline-flex; gap: 4px; flex: none; }
+  .arg { padding: 0 5px; border-radius: var(--radius-sm); background: var(--control); color: var(--text-muted); font-size: 11px; }
+  .desc { flex: 1; min-width: 0; overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
   .recent {
     margin: var(--space-2) 0 0;
     padding: 0;

@@ -2,7 +2,7 @@
   import { tick } from 'svelte'
   import { mdiSend } from '@mdi/js'
   import { session } from '../lib/moonraker/session.svelte'
-  import { commandSuggestions } from '../lib/gcode'
+  import { commandSuggestions, GCODE_FALLBACK, GCODE_PARAMS, KNOWN_COMMAND_PARAMS, ARG_DESCRIPTIONS, macroParams, paramSuggestions, type ParamSuggestion } from '../lib/gcode'
   import { normalizeScript } from '../lib/moonraker/console.svelte'
   import Button from '../lib/ui/Button.svelte'
 
@@ -32,7 +32,54 @@
       .catch(() => { help = {} })
   })
 
-  const suggestions = $derived(suggesting ? commandSuggestions(help, command) : [])
+  // Klipper's help wins; fallback only fills gaps.
+  const fullHelp = $derived({ ...GCODE_FALLBACK, ...help })
+
+  // Macro param names (+defaults) from the config, for stage-2 completion.
+  const settings = $derived(session.printer.get('configfile')?.settings)
+  const macroParamsByName = $derived.by((): Record<string, { name: string, defaultValue: string }[]> => {
+    const map: Record<string, { name: string, defaultValue: string }[]> = {}
+    for (const key of session.printer.keys()) {
+      if (!key.startsWith('gcode_macro ')) continue
+      const name = key.slice('gcode_macro '.length).toUpperCase()
+      const config = settings?.[`gcode_macro ${key.slice('gcode_macro '.length).toLowerCase()}`]
+      const template = typeof config?.gcode === 'string' ? config.gcode : ''
+      map[name] = macroParams(template)
+    }
+    return map
+  })
+
+  // Stage 2 works on the line being typed (multiline scripts complete per line).
+  const activeLine = $derived(command.split('\n').pop() ?? '')
+  const head = $derived((/^\s*(\S+)/.exec(activeLine)?.[1] ?? '').toUpperCase())
+  const afterHead = $derived(activeLine.replace(/^\s*\S+\s?/, ''))
+
+  const knownParams = $derived.by((): ParamSuggestion[] => {
+    if (!head || !/\s/.test(activeLine)) return []
+    const macro = macroParamsByName[head]
+    if (macro) {
+      return macro.map(param => ({
+        name: param.name,
+        description: param.defaultValue ? `Default ${param.defaultValue}` : 'Macro parameter',
+        defaultValue: param.defaultValue || undefined
+      }))
+    }
+    const gcode = GCODE_PARAMS[head]
+    if (gcode) {
+      return gcode.map(name => ({
+        name,
+        description: ARG_DESCRIPTIONS[name] ?? 'Parameter'
+      }))
+    }
+    return KNOWN_COMMAND_PARAMS[head] ?? []
+  })
+
+  const cmdSuggestions = $derived(suggesting ? commandSuggestions(fullHelp, activeLine) : [])
+  const argSuggestions = $derived(suggesting ? paramSuggestions(knownParams, afterHead) : [])
+  // Stage 1 (command) until the first space; stage 2 (params) after it.
+  const suggestions = $derived(/\s/.test(activeLine) ? [] : cmdSuggestions)
+  const paramItems = $derived(/\s/.test(activeLine) ? argSuggestions : [])
+  const popupCount = $derived(suggestions.length + paramItems.length)
 
   $effect(() => {
     void command
@@ -40,8 +87,20 @@
   })
 
   const complete = (value: string) => {
-    command = `${value} `
+    const lines = command.split('\n')
+    lines[lines.length - 1] = `${value} `
+    command = lines.join('\n')
     suggesting = false
+  }
+
+  const completeParam = (name: string) => {
+    const lines = command.split('\n')
+    const line = lines[lines.length - 1] ?? ''
+    // Replace the partial token being typed with NAME=.
+    lines[lines.length - 1] = line.replace(/\S*$/, `${name}=`)
+    command = lines.join('\n')
+    suggesting = true
+    box?.focus()
   }
 
   const time = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -91,9 +150,16 @@
   }
 
   const onKeydown = (event: KeyboardEvent) => {
-    // With suggestions open, the arrows pick one and Tab or Enter takes it.
-    if (suggestions.length > 0) {
-      if (event.key === 'Tab' || event.key === 'Enter') {
+    // With either popup open, the arrows pick and Tab or Enter takes.
+    if (popupCount > 0) {
+      if (event.key === 'Tab' || (event.key === 'Enter' && (suggestions.length > 0 || paramItems.length > 0) && !event.shiftKey)) {
+        // Stage 2 (params) captures plain Enter; stage 1 only Tab/Enter-before-send.
+        if (paramItems.length > 0) {
+          event.preventDefault()
+          const pick = paramItems[selected] ?? paramItems[0]
+          if (pick) completeParam(pick.name)
+          return
+        }
         event.preventDefault()
         const pick = suggestions[selected] ?? suggestions[0]
         if (pick) complete(pick.command)
@@ -102,7 +168,7 @@
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault()
         const step = event.key === 'ArrowDown' ? 1 : -1
-        selected = (selected + step + suggestions.length) % suggestions.length
+        selected = (selected + step + popupCount) % popupCount
         return
       }
       if (event.key === 'Escape') {
@@ -148,8 +214,8 @@
     {/each}
   </ol>
 
-  {#if suggestions.length > 0}
-    <ul class="suggestions" role="listbox" aria-label="Matching commands">
+  {#if popupCount > 0}
+    <ul class="suggestions" role="listbox" aria-label={paramItems.length > 0 ? 'Matching parameters' : 'Matching commands'}>
       {#each suggestions as suggestion, index (suggestion.command)}
         <li role="option" aria-selected={index === selected}>
           <button
@@ -159,7 +225,23 @@
             onclick={() => complete(suggestion.command)}
           >
             <span class="mono command">{suggestion.command}</span>
+            {#if GCODE_PARAMS[suggestion.command]}
+              <span class="args">{#each GCODE_PARAMS[suggestion.command] ?? [] as arg (arg)}<span class="arg mono">{arg}</span>{/each}</span>
+            {/if}
             <span class="description">{suggestion.description}</span>
+          </button>
+        </li>
+      {/each}
+      {#each paramItems as param, index (param.name)}
+        <li role="option" aria-selected={index === selected}>
+          <button
+            type="button"
+            class:selected={index === selected}
+            onmousedown={(event) => event.preventDefault()}
+            onclick={() => completeParam(param.name)}
+          >
+            <span class="mono command">{param.name}=</span>
+            <span class="description">{param.description}{#if param.defaultValue} · default {param.defaultValue}{/if}</span>
           </button>
         </li>
       {/each}
@@ -255,7 +337,9 @@
   }
   .suggestions button.selected, .suggestions button:hover { background: var(--control); }
   .command { font-size: var(--text-sm); color: var(--text); white-space: nowrap; }
-  .description { min-width: 0; font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .args { display: inline-flex; gap: 4px; flex: none; }
+  .arg { padding: 0 5px; border-radius: var(--radius-sm); background: var(--control); color: var(--text-muted); font-size: 11px; }
+  .description { min-width: 0; flex: 1; font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .suggestions .hint { padding: var(--space-1) var(--space-3) 2px; font-size: 11px; color: var(--text-faint); }
 
   form {
@@ -266,6 +350,7 @@
     border-top: 1px solid var(--border);
   }
   .prompt { align-self: flex-start; padding-top: 11px; }
+  .log .prompt { align-self: auto; padding-top: 0; }
   textarea {
     flex: 1;
     min-width: 0;
