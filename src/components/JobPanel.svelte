@@ -1,323 +1,519 @@
 <script lang="ts">
-  import { session } from '../lib/moonraker/session.svelte'
-  import { job } from '../lib/moonraker/job.svelte'
-  import { formatDuration, formatFinish, jobTitle, objectLabel } from '../lib/format'
-  import { excludeObjectCommand, flowFactorCommand, speedFactorCommand } from '../lib/gcode'
-  import ConfirmButton from '../lib/ui/ConfirmButton.svelte'
-  import InlineNumber from '../lib/ui/InlineNumber.svelte'
-  import { machineState } from '../lib/machine'
-  import Button from '../lib/ui/Button.svelte'
-  import Pill from '../lib/ui/Pill.svelte'
-  import ProgressRing from '../lib/ui/ProgressRing.svelte'
-  import Segmented from '../lib/ui/Segmented.svelte'
-  import Thumbnail from '../lib/ui/Thumbnail.svelte'
-  import CameraView from './CameraView.svelte'
-  import LayerPreview from './LayerPreview.svelte'
-  import PauseAtLayer from './PauseAtLayer.svelte'
-  import { browserTokenStore } from '../lib/moonraker/tokens'
+    import { session } from "../lib/moonraker/session.svelte";
+    import { job } from "../lib/moonraker/job.svelte";
+    import {
+        formatDuration,
+        formatFinish,
+        jobTitle,
+        objectLabel,
+    } from "../lib/format";
+    import {
+        excludeObjectCommand,
+        flowFactorCommand,
+        speedFactorCommand,
+    } from "../lib/gcode";
+    import ConfirmButton from "../lib/ui/ConfirmButton.svelte";
+    import InlineNumber from "../lib/ui/InlineNumber.svelte";
+    import { machineState } from "../lib/machine";
+    import Button from "../lib/ui/Button.svelte";
+    import Pill from "../lib/ui/Pill.svelte";
+    import ProgressRing from "../lib/ui/ProgressRing.svelte";
+    import Segmented from "../lib/ui/Segmented.svelte";
+    import Thumbnail from "../lib/ui/Thumbnail.svelte";
+    import CameraView from "./CameraView.svelte";
+    import LayerPreview from "./LayerPreview.svelte";
+    import PauseAtLayer from "./PauseAtLayer.svelte";
+    import { browserTokenStore } from "../lib/moonraker/tokens";
 
-  const CONFIRM_MS = 4000
-  const VIEW_KEY = 'printer-ui:stage-view'
+    const VIEW_KEY = "printer-ui:stage-view";
 
-  type StageView = 'layer' | 'camera'
-  const VIEWS = [
-    { value: 'layer', label: 'Layer' },
-    { value: 'camera', label: 'Camera' }
-  ] as const
+    type StageView = "layer" | "camera";
+    const VIEWS = [
+        { value: "layer", label: "Layer" },
+        { value: "camera", label: "Camera" },
+    ] as const;
 
-  let view = $state<StageView>(browserTokenStore.get(VIEW_KEY) === 'camera' ? 'camera' : 'layer')
-  let cameraIndex = $state(0)
+    let view = $state<StageView>(
+        browserTokenStore.get(VIEW_KEY) === "camera" ? "camera" : "layer",
+    );
+    let cameraIndex = $state(0);
 
-  $effect(() => { browserTokenStore.set(VIEW_KEY, view) })
+    $effect(() => {
+        browserTokenStore.set(VIEW_KEY, view);
+    });
 
-  const cameras = $derived(session.webcams)
-  const camera = $derived(cameras[cameraIndex] ?? cameras[0])
-  const showCamera = $derived(view === 'camera' && camera != null)
+    const cameras = $derived(session.webcams);
+    const camera = $derived(cameras[cameraIndex] ?? cameras[0]);
+    const showCamera = $derived(view === "camera" && camera != null);
 
-  let pending = $state<string | null>(null)
-  let confirmingCancel = $state(false)
-  let confirmTimer: ReturnType<typeof setTimeout> | undefined
+    let pending = $state<string | null>(null);
 
-  $effect(() => {
-    void job.filename
-    job.syncMetadata()
-  })
+    $effect(() => {
+        void job.filename;
+        job.syncMetadata();
+    });
 
-  $effect(() => () => clearTimeout(confirmTimer))
+    const machine = $derived(
+        machineState(session.status, session.klippy.state, job.state),
+    );
+    const gcodeMove = $derived(session.printer.get("gcode_move"));
+    const showProgress = $derived(job.active || job.state === "complete");
 
-  const machine = $derived(machineState(session.status, session.klippy.state, job.state))
-  const gcodeMove = $derived(session.printer.get('gcode_move'))
-  const showProgress = $derived(job.active || job.state === 'complete')
+    const percent = (factor: number | undefined) =>
+        factor == null ? "—" : `${Math.round(factor * 100)}%`;
 
-  const percent = (factor: number | undefined) => (factor == null ? '—' : `${Math.round(factor * 100)}%`)
+    const excludeState = $derived(session.printer.get("exclude_object"));
+    // Excluding the only object is just cancelling, so the list starts at two.
+    const objects = $derived(
+        (excludeState?.objects ?? []).length > 1
+            ? (excludeState?.objects ?? []).map((object) => ({
+                  name: object.name,
+                  label: objectLabel(object.name),
+                  excluded:
+                      excludeState?.excluded_objects.includes(object.name) ??
+                      false,
+                  current: excludeState?.current_object === object.name,
+              }))
+            : [],
+    );
 
-  const excludeState = $derived(session.printer.get('exclude_object'))
-  // Excluding the only object is just cancelling, so the list starts at two.
-  const objects = $derived((excludeState?.objects ?? []).length > 1
-    ? (excludeState?.objects ?? []).map(object => ({
-        name: object.name,
-        label: objectLabel(object.name),
-        excluded: excludeState?.excluded_objects.includes(object.name) ?? false,
-        current: excludeState?.current_object === object.name
-      }))
-    : [])
-
-  const run = async (method: string) => {
-    pending = method
-    await session.run(method)
-    pending = null
-  }
-
-  const cancel = () => {
-    if (!confirmingCancel) {
-      confirmingCancel = true
-      confirmTimer = setTimeout(() => { confirmingCancel = false }, CONFIRM_MS)
-      return
-    }
-    clearTimeout(confirmTimer)
-    confirmingCancel = false
-    void run('printer.print.cancel')
-  }
+    const run = async (method: string) => {
+        pending = method;
+        await session.run(method);
+        pending = null;
+    };
 </script>
 
 <section class="job">
-  <div class="stage">
-    {#if showCamera && camera}
-      <CameraView {camera} />
-    {:else if job.filename}
-      <LayerPreview />
-    {:else}
-      <div class="idle">
-        {#if session.klippyReady}
-          <p class="idle-title">Ready for a print</p>
-          <p class="muted">Send one from OrcaSlicer and it appears here.</p>
+    <div class="stage">
+        {#if showCamera && camera}
+            <CameraView {camera} />
+        {:else if job.filename}
+            <LayerPreview />
         {:else}
-          <p class="idle-title">Printer not ready</p>
-          <p class="muted">Klipper needs attention before it can print.</p>
+            <div class="idle">
+                {#if session.klippyReady}
+                    <p class="idle-title">Ready for a print</p>
+                    <p class="muted">
+                        Send one from OrcaSlicer and it appears here.
+                    </p>
+                {:else}
+                    <p class="idle-title">Printer not ready</p>
+                    <p class="muted">
+                        Klipper needs attention before it can print.
+                    </p>
+                {/if}
+            </div>
         {/if}
-      </div>
-    {/if}
 
-    {#if cameras.length > 0}
-      <div class="stage-switch">
-        {#if showCamera && cameras.length > 1}
-          <select bind:value={cameraIndex} aria-label="Camera">
-            {#each cameras as option, index (option.uid)}
-              <option value={index}>{option.name ?? `Camera ${index + 1}`}</option>
-            {/each}
-          </select>
-        {/if}
-        <Segmented options={VIEWS} bind:value={view} label="Stage view" />
-      </div>
-    {/if}
-  </div>
-
-  <div class="details">
-    <Pill tone={machine.tone} pulse={machine.busy}>{machine.label}</Pill>
-
-    {#if job.filename}
-      <div class="title-row">
-        {#if job.metadata?.thumbnails?.length}
-          <Thumbnail path={job.filename} thumbnails={job.metadata.thumbnails} size={64} />
-        {/if}
-        <h1 title={job.filename}>{jobTitle(job.filename)}</h1>
-      </div>
-    {:else}
-      <h1 class="none">No job loaded</h1>
-    {/if}
-
-    {#if showProgress}
-      <div class="ring">
-        <ProgressRing value={job.progress} size={160} label="{Math.round(job.progress * 100)} percent complete">
-          <span class="percent num">{Math.floor(job.progress * 100)}%</span>
-          {#if job.remaining != null}
-            <span class="muted remaining">{formatDuration(job.remaining)} left</span>
-            {#if job.active}<span class="finish">Done {formatFinish(job.remaining)}</span>{/if}
-          {/if}
-        </ProgressRing>
-      </div>
-
-      <div class="bar-row" aria-hidden="true">
-        <span class="num">{Math.floor(job.progress * 100)}%</span>
-        <div class="bar"><div class="fill" style:width="{job.progress * 100}%"></div></div>
-        {#if job.remaining != null}<span class="num muted">{formatDuration(job.remaining)} left · {formatFinish(job.remaining)}</span>{/if}
-      </div>
-
-      <dl>
-        <div><dt>Elapsed</dt><dd class="num">{formatDuration(job.elapsed)}</dd></div>
-        <div><dt>Filament</dt><dd class="num">{((job.stats?.filament_used ?? 0) / 1000).toFixed(2)} m</dd></div>
-        <div>
-          <dt>Speed</dt>
-          <dd class="num">
-            {#if job.active}
-              <InlineNumber
-                value={gcodeMove?.speed_factor != null ? gcodeMove.speed_factor * 100 : undefined}
-                label="Speed factor"
-                suffix="%"
-                min={1}
-                max={500}
-                disabled={!session.klippyReady}
-                onsubmit={(value) => session.sendGcode(speedFactorCommand(value))}
-              />
-            {:else}{percent(gcodeMove?.speed_factor)}{/if}
-          </dd>
-        </div>
-        <div>
-          <dt>Flow</dt>
-          <dd class="num">
-            {#if job.active}
-              <InlineNumber
-                value={gcodeMove?.extrude_factor != null ? gcodeMove.extrude_factor * 100 : undefined}
-                label="Flow factor"
-                suffix="%"
-                min={1}
-                max={200}
-                disabled={!session.klippyReady}
-                onsubmit={(value) => session.sendGcode(flowFactorCommand(value))}
-              />
-            {:else}{percent(gcodeMove?.extrude_factor)}{/if}
-          </dd>
-        </div>
-        {#if job.metadata?.filament_type}<div><dt>Material</dt><dd>{job.metadata.filament_type}</dd></div>{/if}
-      </dl>
-    {/if}
-
-    <PauseAtLayer />
-
-    {#if job.active && objects.length > 0}
-      <div class="objects">
-        <span class="objects-title">Objects</span>
-        <ul>
-          {#each objects as object (object.name)}
-            <li class:excluded={object.excluded}>
-              <span class="object-name" title={object.name}>
-                {#if object.current && !object.excluded}<span class="dot" aria-label="Printing now"></span>{/if}
-                {object.label}
-              </span>
-              {#if object.excluded}
-                <span class="muted object-state">Excluded</span>
-              {:else}
-                <ConfirmButton
-                  label="Exclude"
-                  confirmLabel="Exclude?"
-                  confirmVariant="danger"
-                  variant="ghost"
-                  disabled={!session.klippyReady}
-                  onconfirm={() => session.sendGcode(excludeObjectCommand(object.name))}
+        {#if cameras.length > 0}
+            <div class="stage-switch">
+                {#if showCamera && cameras.length > 1}
+                    <select bind:value={cameraIndex} aria-label="Camera">
+                        {#each cameras as option, index (option.uid)}
+                            <option value={index}
+                                >{option.name ?? `Camera ${index + 1}`}</option
+                            >
+                        {/each}
+                    </select>
+                {/if}
+                <Segmented
+                    options={VIEWS}
+                    bind:value={view}
+                    label="Stage view"
                 />
-              {/if}
-            </li>
-          {/each}
-        </ul>
-      </div>
-    {/if}
-
-    {#if job.active}
-      <div class="actions">
-        {#if job.state === 'paused'}
-          <Button
-            variant="primary"
-            loading={pending === 'printer.print.resume'}
-            disabled={!session.klippyReady}
-            onclick={() => run('printer.print.resume')}
-          >Resume</Button>
-        {:else}
-          <Button
-            loading={pending === 'printer.print.pause'}
-            disabled={!session.klippyReady}
-            onclick={() => run('printer.print.pause')}
-          >Pause</Button>
+            </div>
         {/if}
-        <Button
-          variant={confirmingCancel ? 'danger' : 'secondary'}
-          loading={pending === 'printer.print.cancel'}
-          disabled={!session.klippyReady}
-          onclick={cancel}
-        >{confirmingCancel ? 'Confirm cancel' : 'Cancel'}</Button>
-      </div>
-    {/if}
-  </div>
+    </div>
+
+    <div class="details">
+        <Pill tone={machine.tone} pulse={machine.busy}>{machine.label}</Pill>
+
+        {#if job.filename}
+            <div class="title-row">
+                {#if job.metadata?.thumbnails?.length}
+                    <Thumbnail
+                        path={job.filename}
+                        thumbnails={job.metadata.thumbnails}
+                        size={64}
+                    />
+                {/if}
+                <h1 title={job.filename}>{jobTitle(job.filename)}</h1>
+            </div>
+        {:else}
+            <h1 class="none">No job loaded</h1>
+        {/if}
+
+        {#if showProgress}
+            <div class="ring">
+                <ProgressRing
+                    value={job.progress}
+                    size={160}
+                    label="{Math.round(job.progress * 100)} percent complete"
+                >
+                    <span class="percent num"
+                        >{Math.floor(job.progress * 100)}%</span
+                    >
+                    {#if job.remaining != null}
+                        <span class="muted remaining"
+                            >{formatDuration(job.remaining)} left</span
+                        >
+                        {#if job.active}<span class="finish"
+                                >Done {formatFinish(job.remaining)}</span
+                            >{/if}
+                    {/if}
+                </ProgressRing>
+            </div>
+
+            <div class="bar-row" aria-hidden="true">
+                <span class="num">{Math.floor(job.progress * 100)}%</span>
+                <div class="bar">
+                    <div class="fill" style:width="{job.progress * 100}%"></div>
+                </div>
+                {#if job.remaining != null}<span class="num muted"
+                        >{formatDuration(job.remaining)} left · {formatFinish(
+                            job.remaining,
+                        )}</span
+                    >{/if}
+            </div>
+
+            <dl>
+                <div>
+                    <dt>Elapsed</dt>
+                    <dd class="num">{formatDuration(job.elapsed)}</dd>
+                </div>
+                <div>
+                    <dt>Filament</dt>
+                    <dd class="num">
+                        {((job.stats?.filament_used ?? 0) / 1000).toFixed(2)} m
+                    </dd>
+                </div>
+                <div>
+                    <dt>Speed</dt>
+                    <dd class="num">
+                        {#if job.active}
+                            <InlineNumber
+                                value={gcodeMove?.speed_factor != null
+                                    ? gcodeMove.speed_factor * 100
+                                    : undefined}
+                                label="Speed factor"
+                                suffix="%"
+                                min={1}
+                                max={500}
+                                disabled={!session.klippyReady}
+                                onsubmit={(value) =>
+                                    session.sendGcode(
+                                        speedFactorCommand(value),
+                                    )}
+                            />
+                        {:else}{percent(gcodeMove?.speed_factor)}{/if}
+                    </dd>
+                </div>
+                <div>
+                    <dt>Flow</dt>
+                    <dd class="num">
+                        {#if job.active}
+                            <InlineNumber
+                                value={gcodeMove?.extrude_factor != null
+                                    ? gcodeMove.extrude_factor * 100
+                                    : undefined}
+                                label="Flow factor"
+                                suffix="%"
+                                min={1}
+                                max={200}
+                                disabled={!session.klippyReady}
+                                onsubmit={(value) =>
+                                    session.sendGcode(flowFactorCommand(value))}
+                            />
+                        {:else}{percent(gcodeMove?.extrude_factor)}{/if}
+                    </dd>
+                </div>
+                {#if job.metadata?.filament_type}<div>
+                        <dt>Material</dt>
+                        <dd>{job.metadata.filament_type}</dd>
+                    </div>{/if}
+            </dl>
+        {/if}
+
+        <PauseAtLayer />
+
+        {#if job.active && objects.length > 0}
+            <div class="objects">
+                <span class="objects-title">Objects</span>
+                <ul>
+                    {#each objects as object (object.name)}
+                        <li class:excluded={object.excluded}>
+                            <span class="object-name" title={object.name}>
+                                {#if object.current && !object.excluded}<span
+                                        class="dot"
+                                        aria-label="Printing now"
+                                    ></span>{/if}
+                                {object.label}
+                            </span>
+                            {#if object.excluded}
+                                <span class="muted object-state">Excluded</span>
+                            {:else}
+                                <ConfirmButton
+                                    label="Exclude"
+                                    confirmLabel="Exclude?"
+                                    confirmVariant="danger"
+                                    variant="ghost"
+                                    disabled={!session.klippyReady}
+                                    onconfirm={() =>
+                                        session.sendGcode(
+                                            excludeObjectCommand(object.name),
+                                        )}
+                                />
+                            {/if}
+                        </li>
+                    {/each}
+                </ul>
+            </div>
+        {/if}
+
+        {#if job.active}
+            <div class="actions">
+                {#if job.state === "paused"}
+                    <Button
+                        variant="primary"
+                        loading={pending === "printer.print.resume"}
+                        disabled={!session.klippyReady}
+                        onclick={() => run("printer.print.resume")}
+                        >Resume</Button
+                    >
+                {:else}
+                    <Button
+                        loading={pending === "printer.print.pause"}
+                        disabled={!session.klippyReady}
+                        onclick={() => run("printer.print.pause")}>Pause</Button
+                    >
+                {/if}
+                <ConfirmButton
+                    label="Cancel"
+                    confirmTitle="Cancel this print?"
+                    confirmLabel="Cancel print"
+                    message={job.filename ? jobTitle(job.filename) : undefined}
+                    confirmVariant="danger"
+                    size="md"
+                    disabled={!session.klippyReady}
+                    onconfirm={() => run("printer.print.cancel")}
+                />
+            </div>
+        {/if}
+    </div>
 </section>
 
 <style>
-  .job {
-    display: flex;
-    min-height: 520px;
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-  .stage {
-    position: relative;
-    flex: 1;
-    min-width: 0;
-    display: grid;
-    place-items: center;
-    background: var(--surface-inset);
-  }
-  .stage-switch {
-    position: absolute;
-    right: var(--space-4);
-    bottom: var(--space-4);
-    display: flex;
-    gap: var(--space-2);
-    z-index: 1;
-  }
-  .stage-switch select {
-    height: 42px;
-    padding: 0 var(--space-3);
-    border: 0;
-    border-radius: 10px;
-    background: var(--surface-inset);
-    font-size: var(--text-sm);
-  }
-  .idle { text-align: center; padding: var(--space-6); }
-  .idle p { margin: 0; }
-  .idle-title { font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--space-1) !important; }
+    .job {
+        display: flex;
+        min-height: 520px;
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+    .stage {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+        display: grid;
+        place-items: center;
+        background: var(--surface-inset);
+    }
+    .stage-switch {
+        position: absolute;
+        right: var(--space-4);
+        bottom: var(--space-4);
+        display: flex;
+        gap: var(--space-2);
+        z-index: 1;
+    }
+    .stage-switch select {
+        height: 42px;
+        padding: 0 var(--space-3);
+        border: 0;
+        border-radius: 10px;
+        background: var(--surface-inset);
+        font-size: var(--text-sm);
+    }
+    .idle {
+        text-align: center;
+        padding: var(--space-6);
+    }
+    .idle p {
+        margin: 0;
+    }
+    .idle-title {
+        font-size: var(--text-lg);
+        font-weight: 600;
+        margin-bottom: var(--space-1) !important;
+    }
 
-  .details {
-    width: 300px;
-    flex: none;
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-    padding: var(--space-6);
-    border-left: 1px solid var(--border);
-  }
-  .title-row { display: flex; align-items: center; gap: var(--space-3); }
-  h1 { margin: 0; font-size: var(--text-xl); font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
-  h1.none { color: var(--text-muted); font-weight: 600; }
-  .ring { align-self: center; }
-  .percent { font-size: 2rem; font-weight: 600; line-height: 1; }
-  .remaining { margin-top: var(--space-1); font-size: var(--text-xs); }
-  .finish { margin-top: 2px; font-size: var(--text-xs); font-weight: 600; color: var(--accent); }
-  dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
-  dt { font-size: var(--text-xs); color: var(--text-muted); }
-  dd { margin: 0; font-size: var(--text-lg); }
-  .objects { display: flex; flex-direction: column; gap: var(--space-1); }
-  .objects-title { font-size: var(--text-xs); color: var(--text-muted); }
-  .objects ul { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow-y: auto; }
-  .objects li { display: flex; align-items: center; gap: var(--space-2); min-height: 38px; }
-  .object-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .excluded .object-name { color: var(--text-faint); text-decoration: line-through; }
-  .object-state { font-size: var(--text-xs); }
-  .dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--accent); }
-  .actions { margin-top: auto; display: flex; gap: var(--space-2); }
-  .actions :global(.btn) { flex: 1; }
+    .details {
+        width: 300px;
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        padding: var(--space-6);
+        border-left: 1px solid var(--border);
+    }
+    .title-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+    }
+    h1 {
+        margin: 0;
+        font-size: var(--text-xl);
+        font-weight: 700;
+        line-height: 1.2;
+        overflow-wrap: anywhere;
+    }
+    h1.none {
+        color: var(--text-muted);
+        font-weight: 600;
+    }
+    .ring {
+        align-self: center;
+    }
+    .percent {
+        font-size: 2rem;
+        font-weight: 600;
+        line-height: 1;
+    }
+    .remaining {
+        margin-top: var(--space-1);
+        font-size: var(--text-xs);
+    }
+    .finish {
+        margin-top: 2px;
+        font-size: var(--text-xs);
+        font-weight: 600;
+        color: var(--accent);
+    }
+    dl {
+        margin: 0;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-4);
+    }
+    dt {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+    }
+    dd {
+        margin: 0;
+        font-size: var(--text-lg);
+    }
+    .objects {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-1);
+    }
+    .objects-title {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+    }
+    .objects ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 180px;
+        overflow-y: auto;
+    }
+    .objects li {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        min-height: 38px;
+    }
+    .object-name {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        font-size: var(--text-sm);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .excluded .object-name {
+        color: var(--text-faint);
+        text-decoration: line-through;
+    }
+    .object-state {
+        font-size: var(--text-xs);
+    }
+    .dot {
+        width: 6px;
+        height: 6px;
+        flex: none;
+        border-radius: 50%;
+        background: var(--accent);
+    }
+    .actions {
+        margin-top: auto;
+        display: flex;
+        gap: var(--space-2);
+    }
+    .actions :global(.btn) {
+        flex: 1;
+    }
 
-  .bar-row { display: none; align-items: center; gap: var(--space-3); font-size: var(--text-sm); }
-  .bar { flex: 1; height: 6px; border-radius: 999px; background: var(--control); overflow: hidden; }
-  .fill { height: 100%; border-radius: inherit; background: var(--accent); transition: width 400ms ease; }
+    .bar-row {
+        display: none;
+        align-items: center;
+        gap: var(--space-3);
+        font-size: var(--text-sm);
+    }
+    .bar {
+        flex: 1;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--control);
+        overflow: hidden;
+    }
+    .fill {
+        height: 100%;
+        border-radius: inherit;
+        background: var(--accent);
+        transition: width 400ms ease;
+    }
 
-  @media (max-width: 760px) {
-    .bar-row { display: flex; }
-    .job { flex-direction: column; min-height: 0; }
-    .stage { height: 260px; flex: none; }
-    .details { width: auto; border-left: 0; padding: var(--space-4) 18px 18px; gap: var(--space-3); }
-    h1 { font-size: var(--text-lg); }
-    .ring { display: none; }
-    dl { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
-    dd { font-size: var(--text-md); }
-    .actions { margin-top: var(--space-1); }
-  }
+    @media (max-width: 760px) {
+        .bar-row {
+            display: flex;
+        }
+        .job {
+            flex-direction: column;
+            min-height: 0;
+        }
+        .stage {
+            height: 260px;
+            flex: none;
+        }
+        .details {
+            width: auto;
+            border-left: 0;
+            padding: var(--space-4) 18px 18px;
+            gap: var(--space-3);
+        }
+        h1 {
+            font-size: var(--text-lg);
+        }
+        .ring {
+            display: none;
+        }
+        dl {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: var(--space-3);
+        }
+        dd {
+            font-size: var(--text-md);
+        }
+        .actions {
+            margin-top: var(--space-1);
+        }
+    }
 </style>
