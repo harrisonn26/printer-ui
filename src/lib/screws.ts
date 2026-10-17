@@ -26,7 +26,7 @@ export const turnFraction = (adjust: string): number | null => {
 export const screwPosition = (value: unknown): [number, number] | null => {
   const parts = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []
   const [x, y] = parts.map(part => Number(part))
-  return parts.length >= 2 && Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null
+  return x !== undefined && y !== undefined && Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null
 }
 
 /** SVG path for a wedge of `fraction` of a circle, from 12 o'clock, clockwise or not. */

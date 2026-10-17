@@ -11,14 +11,9 @@
     const state = info?.service_state?.[name]
     return { name, active: state?.active_state ?? 'unknown', sub: state?.sub_state ?? '' }
   }))
-  const power = $derived(session.system.power)
 
   const serviceTone = (active: string): Tone => (
     active === 'active' ? 'success' : active === 'activating' || active === 'reloading' ? 'accent' : active === 'failed' ? 'danger' : 'neutral'
-  )
-
-  const powerTone = (status: Moonraker.Power.DeviceState): Tone => (
-    status === 'on' ? 'success' : status === 'error' ? 'danger' : 'neutral'
   )
 
   const busy = $derived(job.active)
@@ -62,38 +57,10 @@
   {/if}
 </Card>
 
-{#if power.length > 0}
-  <Card title="Power">
-    <ul>
-      {#each power as device (device.device)}
-        {@const locked = device.locked_while_printing && busy}
-        <li>
-          <span class="name">{device.device}</span>
-          <Pill tone={powerTone(device.status)}>{device.status}</Pill>
-          {#if locked}<span class="lock muted">Locked while printing</span>{/if}
-          <ConfirmButton
-            label={device.status === 'on' ? 'Turn off' : 'Turn on'}
-            confirmLabel={device.status === 'on' ? 'Turn off?' : 'Turn on?'}
-            confirmVariant={device.status === 'on' ? 'danger' : 'primary'}
-            variant="ghost"
-            disabled={!session.ready || locked || device.status === 'init'}
-            title={locked ? 'Moonraker locks this device while the printer is printing' : undefined}
-            onconfirm={() => session.run('machine.device_power.post_device', {
-              device: device.device,
-              action: device.status === 'on' ? 'off' : 'on'
-            })}
-          />
-        </li>
-      {/each}
-    </ul>
-  </Card>
-{/if}
-
 <style>
   .empty { margin: 0; font-size: var(--text-sm); }
   ul { list-style: none; margin: 0; padding: 0; }
   li { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; }
   li + li { border-top: 1px solid var(--border); }
-  .lock { font-size: var(--text-xs); }
   .name { flex: 1; min-width: 0; font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

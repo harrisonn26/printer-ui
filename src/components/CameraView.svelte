@@ -1,6 +1,7 @@
 <script lang="ts">
   import { mdiFullscreen, mdiVideoOffOutline } from '@mdi/js'
   import { session } from '../lib/moonraker/session.svelte'
+  import { job } from '../lib/moonraker/job.svelte'
   import { cameraMode, cameraTransform, resolveCameraUrl } from '../lib/camera'
   import Button from '../lib/ui/Button.svelte'
   import Icon from '../lib/ui/Icon.svelte'
@@ -20,6 +21,8 @@
   const snapshotUrl = $derived(resolve(camera.snapshot_url))
   const transform = $derived(cameraTransform(camera))
   const name = $derived(camera.name ?? 'Camera')
+  const currentLayer = $derived(job.stats?.info?.current_layer)
+  const totalLayers = $derived(job.stats?.info?.total_layer || job.metadata?.layer_count)
 
   // Adaptive MJPEG: fetch one snapshot, wait for it to load, then the next —
   // so a slow link lowers the frame rate instead of queueing requests.
@@ -99,6 +102,12 @@
     </div>
   {/if}
 
+  {#if job.filename && (job.active || job.state === 'complete')}
+    <div class="layer-count num" title="Current layer / total layers">
+      Layer {currentLayer ?? '—'} / {totalLayers ?? '—'}
+    </div>
+  {/if}
+
   {#if mode !== 'unsupported'}
     <div class="controls">
       <Button variant="secondary" size="sm" icon={mdiFullscreen} aria-label="Full screen" onclick={fullscreen} />
@@ -133,5 +142,16 @@
   .message p { margin: 0; color: var(--text); }
   .url { font-size: var(--text-xs); overflow-wrap: anywhere; }
   .controls { position: absolute; top: var(--space-3); right: var(--space-3); opacity: 0.8; }
+  .layer-count {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: rgb(0 0 0 / 0.7);
+    color: #fff;
+    font-size: var(--text-sm);
+    pointer-events: none;
+  }
   .camera:fullscreen .controls { display: none; }
 </style>

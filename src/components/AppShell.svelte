@@ -11,6 +11,7 @@
   import { machineState, tabTitle } from '../lib/machine'
   import { printers, printerLabel } from '../lib/printers.svelte'
   import PrinterSwitcher from './PrinterSwitcher.svelte'
+  import PowerPanel from './PowerPanel.svelte'
   import KlippyBanner from './KlippyBanner.svelte'
   import ManualProbePanel from './ManualProbePanel.svelte'
   import QuickConsole from './QuickConsole.svelte'
@@ -87,6 +88,7 @@
   <header>
     <div class="host"><PrinterSwitcher /></div>
     <div class="desktop-nav">{@render links('segmented')}</div>
+    <PowerPanel />
     <Button
       variant="danger"
       size="sm"
@@ -185,8 +187,8 @@
 
   .mobile-nav { display: none; }
 
-  @media (max-width: 760px) {
-    header { padding: 0 var(--space-4); }
+  @media (max-width: 1100px) {
+    header { padding: 0 var(--space-4); gap: var(--space-2); }
     .shortcut { display: none; }
     header { margin-bottom: var(--space-3); }
     .host { flex: 1; }

@@ -26,7 +26,8 @@
 
   // Each screw's place relative to the others, spread across the square; y flipped so the front is at the bottom.
   const placed = $derived.by(() => {
-    const points = results.map(result => screwPosition(settings?.screws_tilt_adjust?.[result.key]))
+    const screwSettings = settings?.screws_tilt_adjust as Record<string, unknown> | undefined
+    const points = results.map(result => screwPosition(screwSettings?.[result.key]))
     if (points.some(point => point == null)) return null
     const xs = points.map(point => point![0])
     const ys = points.map(point => point![1])
@@ -35,8 +36,8 @@
     const scale = (value: number, min: number, max: number) => (max > min ? (value - min) / (max - min) : 0.5)
     return results.map((result, index) => ({
       ...result,
-      left: 25 + scale(xs[index], minX, maxX) * 50,
-      top: 72 - scale(ys[index], minY, maxY) * 46
+      left: 25 + scale(xs[index]!, minX, maxX) * 50,
+      top: 72 - scale(ys[index]!, minY, maxY) * 46
     }))
   })
 
